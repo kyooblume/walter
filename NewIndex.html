@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WALTER — HRV Analyser</title>
+<link rel = "stylesheet" href = "NewIndex.css">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+</head>
+<body>
+
+<header>
+  <h1>WALTER</h1>
+  <p>HRV Analyser — Heart Rate Variability for psychology students</p>
+</header>
+
+<main>
+  <div class="error-box" id="errorBox"></div>
+
+  <div class="upload-card" id="uploadCard">
+    <div class="upload-icon">&#128196;</div>
+    <h2>Upload your Harvey CSV file</h2>
+    <p>Drag and drop here, or click to select a file</p>
+    <label class="btn btn-primary">
+      Choose file
+      <input type="file" id="fileInput" accept=".csv">
+    </label>
+    <p style="margin-top:12px; font-size:12px; color:var(--gray-text);">Your data never leaves your device — all analysis runs in the browser.</p>
+  </div>
+
+  <div class="results" id="results">
+    <div class="phase-legend" id="phaseLegend"></div>
+
+    <div class="metrics-grid" id="metricsGrid"></div>
+
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">Tachogram — RR intervals over time</span>
+        <button class="btn btn-sm" onclick="downloadChart('rrChart', 'walter_tachogram.png')">Download PNG</button>
+      </div>
+      <div class="chart-wrap"><canvas id="rrChart"></canvas></div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">Heart rate over time</span>
+        <button class="btn btn-sm" onclick="downloadChart('hrChart', 'walter_hr.png')">Download PNG</button>
+      </div>
+      <div class="chart-wrap"><canvas id="hrChart"></canvas></div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">Summary table</span>
+        <button class="btn btn-sm" onclick="downloadCSV()">Download CSV</button>
+      </div>
+      <div style="overflow-x:auto">
+        <table id="summaryTable"></table>
+      </div>
+    </div>
+
+    <div style="text-align:center; margin-top:24px;">
+      <button class="btn" onclick="resetApp()">&#8617; Upload another file</button>
+    </div>
+  </div>
+</main>
+</body>
+<script src = "NewIndexJava.js"></script>
+</html>

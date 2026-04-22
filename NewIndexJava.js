@@ -63,7 +63,7 @@ function processFile(file) {
         return;
       }
 
-      const phases = buildPhases(allRows, validRows);
+      const phases = buildPhases(allRows);
       renderResults(allRows,validRows, phases);
     },
     error: function() { showError('Could not read the file. Make sure it is a valid CSV.'); }
@@ -71,30 +71,31 @@ function processFile(file) {
 }
 
 //goes through the rows and collects timestamps where a phase marker is
-function buildPhases(allRows, validRows) {
-  const phaseMarkers = [];
-  allRows.forEach(r => {
-    if ((r.event || '').includes('PHASE_MARKER')) {
-      phaseMarkers.push(parseFloat(r.timestamp_ms));
-    }
-  });
+function buildPhases(allRows){
+        const phaseMap = {};
 
-  if (phaseMarkers.length === 0) return [{ label: 'Session', rows: validRows }];
+        allRows.forEach(r => {
+            const event = (r.event || '').trim();
+            const rr = parseFloat(r.rr_ms);
+            const phase = parseInt(r.phase,10);
 
-  const phases = [];
-  let boundaries = [parseFloat(validRows[0].timestamp_ms), ...phaseMarkers, Infinity];
+            if(event!=='')return;
+            if(!(rr >=300 && rr <= 2000)) return;
+            if(isNaN(phase)) return;
 
-  for (let i = 0; i < boundaries.length - 1; i++) {
-    const start = boundaries[i];
-    const end = boundaries[i + 1];
-    const phaseRows = validRows.filter(r => {
-      const t = parseFloat(r.timestamp_ms);
-      return t >= start && t < end;
-    });
-    if (phaseRows.length > 0) phases.push({ label: 'Phase ' + (i + 1), rows: phaseRows });
-  }
+            if (!phaseMap[phase]){
+                phaseMap[phase] = [];
+            }
+            phaseMap[phase].push(r);
+        });
+        const phaseNumbers = Object.keys(phaseMap)
+        .map(Number)
+        .sort((a,b) => a-b);
 
-  return phases;
+        return phaseNumbers.map(n => ({
+            label: `Phase ${n}`,
+            rows:phaseMap[n]
+        }))
 }
 
 function calcMetrics(rows) {

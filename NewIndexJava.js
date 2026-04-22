@@ -16,10 +16,12 @@ const uploadCard = document.getElementById('uploadCard');
 const errorBox = document.getElementById('errorBox');
 const results = document.getElementById('results');
 
+//when user selects a file grab first file and send it to process file
 fileInput.addEventListener('change', e => {
   if (e.target.files[0]) processFile(e.target.files[0]);
 });
 
+//lets a user drag a file onto the box and when they drop it, it procceses it 
 uploadCard.addEventListener('dragover', e => { e.preventDefault(); uploadCard.classList.add('drag-over'); });
 uploadCard.addEventListener('dragleave', () => uploadCard.classList.remove('drag-over'));
 uploadCard.addEventListener('drop', e => {
@@ -34,6 +36,7 @@ function showError(msg) {
 }
 function hideError() { errorBox.style.display = 'none'; }
 
+//this takes the files and parses it and then filters it and then sends it to be displayed
 function processFile(file) {
   hideError();
   if (!file.name.endsWith('.csv')) { showError('Please upload a CSV file.'); return; }
@@ -42,7 +45,7 @@ function processFile(file) {
     header: true,
     skipEmptyLines: true,
     complete: function(res) {
-      const rows = res.data;
+      const allRows = res.data;
       const cols = res.meta.fields || [];
 
       if (!cols.includes('rr_ms') || !cols.includes('timestamp_ms')) {
@@ -50,7 +53,7 @@ function processFile(file) {
         return;
       }
 
-      const validRows = rows.filter(r => {
+      const validRows = allRows.filter(r => {
         const rr = parseFloat(r.rr_ms);
         return rr >= 300 && rr <= 2000;
       });
@@ -60,13 +63,14 @@ function processFile(file) {
         return;
       }
 
-      const phases = buildPhases(rows, validRows);
-      renderResults(validRows, phases);
+      const phases = buildPhases(allRows, validRows);
+      renderResults(allRows,validRows, phases);
     },
     error: function() { showError('Could not read the file. Make sure it is a valid CSV.'); }
   });
 }
 
+//goes through the rows and collects timestamps where a phase marker is
 function buildPhases(allRows, validRows) {
   const phaseMarkers = [];
   allRows.forEach(r => {
@@ -100,6 +104,7 @@ function calcMetrics(rows) {
   const meanRR = rr.reduce((a, b) => a + b, 0) / rr.length;
   const meanHR = hr.length ? hr.reduce((a, b) => a + b, 0) / hr.length : 60000 / meanRR;
 
+  //the difference in time between each hearbeat interval 
   const diffs = [];
   for (let i = 1; i < rr.length; i++) diffs.push(rr[i] - rr[i - 1]);
 
@@ -124,7 +129,7 @@ function calcMetrics(rows) {
   };
 }
 
-function renderResults(allValid, phases) {
+function renderResults(allRows,allValid, phases) {
   uploadCard.style.display = 'none';
   results.style.display = 'block';
 
@@ -133,11 +138,12 @@ function renderResults(allValid, phases) {
 
   renderLegend(phases);
   renderMetricCards(sessionMetrics, phaseMetrics);
-  renderCharts(allValid, phases);
+  renderCharts(allRows,allValid, phases);
   renderTable(sessionMetrics, phaseMetrics);
   summaryData = { session: sessionMetrics, phases: phaseMetrics };
 }
 
+//takes the data and updates the ui
 function renderLegend(phases) {
   const legend = document.getElementById('phaseLegend');
   legend.innerHTML = '';
@@ -160,6 +166,7 @@ function renderLegend(phases) {
   }
 }
 
+//creates the stat cards 
 function renderMetricCards(s, phaseMetrics) {
   const grid = document.getElementById('metricsGrid');
   const metrics = [
@@ -183,15 +190,20 @@ function renderMetricCards(s, phaseMetrics) {
   }).join('');
 }
 
-function renderCharts(allValid, phases) {
-  const t0 = parseFloat(allValid[0].timestamp_ms);
 
-  const rrData = allValid.map(r => ({
-    x: ((parseFloat(r.timestamp_ms) - t0) / 1000).toFixed(2),
+//this function draws the two grpahs 
+function renderCharts(allRows, validHeartbeats, phases) {
+  const sessionStartRow = allRows.find(r => (r.event || '').includes('SESSION_START'));
+  const chartStartTime = sessionStartRow
+  ? parseFloat(sessionStartRow.timestamp_ms)
+  : parseFloat(validHeartbeats[0].timestamp_ms)
+
+  const rrData = validHeartbeats.map(r => ({
+    x: ((parseFloat(r.timestamp_ms) - chartStartTime) / 1000).toFixed(2),
     y: parseFloat(r.rr_ms)
   }));
-  const hrData = allValid.map(r => ({
-    x: ((parseFloat(r.timestamp_ms) - t0) / 1000).toFixed(2),
+  const hrData = validHeartbeats.map(r => ({
+    x: ((parseFloat(r.timestamp_ms) - chartStartTime) / 1000).toFixed(2),
     y: parseFloat(r.hr_bpm)
   }));
 
@@ -199,7 +211,7 @@ function renderCharts(allValid, phases) {
   phases.forEach((p, i) => {
     if (i === 0) return;
     const t = parseFloat(p.rows[0].timestamp_ms);
-    const xVal = ((t - t0) / 1000).toFixed(2);
+    const xVal = ((t - chartStartTime) / 1000).toFixed(2);
     const c = PHASE_COLORS[i % PHASE_COLORS.length];
     annotations['line' + i] = {
       type: 'line', xMin: xVal, xMax: xVal,
@@ -215,12 +227,13 @@ function renderCharts(allValid, phases) {
         yAdjust: 8
       }
     };
+
   });
 
   const phaseBackgrounds = phases.map((p, i) => {
     const c = PHASE_COLORS[i % PHASE_COLORS.length];
-    const xMin = ((parseFloat(p.rows[0].timestamp_ms) - t0) / 1000).toFixed(2);
-    const xMax = ((parseFloat(p.rows[p.rows.length - 1].timestamp_ms) - t0) / 1000).toFixed(2);
+    const xMin = ((parseFloat(p.rows[0].timestamp_ms) - chartStartTime) / 1000).toFixed(2);
+    const xMax = ((parseFloat(p.rows[p.rows.length - 1].timestamp_ms) - chartStartTime) / 1000).toFixed(2);
     return { type: 'box', xMin, xMax, backgroundColor: c.bg + '55', borderWidth: 0 };
   });
 
@@ -269,6 +282,7 @@ function renderCharts(allValid, phases) {
   });
 }
 
+//this builds the summary table 
 function renderTable(session, phaseMetrics) {
   const metrics = [
     { label: 'Beat count', key: 'count', unit: 'beats' },
@@ -313,6 +327,7 @@ function renderTable(session, phaseMetrics) {
     </tbody>`;
 }
 
+//this lets the user downlaod the chart as an image
 function downloadChart(id, filename) {
   const canvas = document.getElementById(id);
   const link = document.createElement('a');
@@ -320,6 +335,8 @@ function downloadChart(id, filename) {
   link.href = canvas.toDataURL('image/png');
   link.click();
 }
+
+// this function allows the user to download the resuts as a csv
 
 function downloadCSV() {
   if (!summaryData.session) return;
@@ -352,6 +369,7 @@ function downloadCSV() {
   link.click();
 }
 
+//clears everthing and goes back to the upload screen 
 function resetApp() {
   uploadCard.style.display = 'block';
   results.style.display = 'none';

@@ -1,10 +1,9 @@
-<style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
   :root {
     --radius: 10px;
     --radius-sm: 6px;
-  }
+}
 
   body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
@@ -12,18 +11,31 @@
     color: black;
     min-height: 100vh;
     padding: 0;
-  }
+}
 
   header {
     background: white;
     border-bottom: 1px solid gray;
     padding: 18px 24px;
-  }
+}
 
-  header h1 { font-size: 20px; font-weight: 600; letter-spacing: -0.3px; }
-  header p { font-size: 13px; color: var(--gray-text); margin-top: 2px; }
+  header h1 {
+    font-size: 20px; 
+    font-weight: 600; 
+    letter-spacing: -0.3px;
+}
 
-  main { max-width: 960px; margin: 0 auto; padding: 24px 16px; }
+  header p {
+    font-size: 13px; 
+    color: gray; 
+    margin-top: 2px; 
+}
+
+  main {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 24px 16px;
+}
 
   .upload-card {
     background: white;
@@ -34,7 +46,7 @@
     margin-bottom: 24px;
     cursor: pointer;
     transition: border-color 0.2s;
-  }
+}
   .upload-card:hover { border-color: blue; }
   .upload-card.drag-over { border-color: blue; background: lightblue; }
   .upload-icon { font-size: 32px; margin-bottom: 12px; }
@@ -53,7 +65,7 @@
     color: var(--text);
     cursor: pointer;
     transition: background 0.15s;
-  }
+}
   .btn:hover { background: gray; }
   .btn-primary { background: blue; color: white; border-color: var(--blue); }
   .btn-primary:hover { background: blue; }
@@ -68,9 +80,13 @@
     color: red;
     margin-bottom: 16px;
     display: none;
-  }
+}
 
-  .phase-legend { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 20px; }
+  .phase-legend { display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 20px;
+}
   .phase-badge {
     display: inline-flex;
     align-items: center;
@@ -79,24 +95,44 @@
     font-weight: 500;
     padding: 4px 12px;
     border-radius: 20px;
-  }
-  .phase-dot { width: 8px; height: 8px; border-radius: 50%; }
+}
+  .phase-dot { 
+    width: 8px; 
+    height: 8px; 
+    border-radius: 50%;
+}
 
   .metrics-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
     gap: 10px;
     margin-bottom: 24px;
-  }
+}
   .metric-card {
     background: white;
     border: 1px solid grey;
     border-radius: var(--radius);
     padding: 14px 16px;
-  }
-  .metric-card .label { font-size: 11px; color: gray; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; }
-  .metric-card .value { font-size: 22px; font-weight: 600; line-height: 1; }
-  .metric-card .unit { font-size: 12px; color: gray; font-weight: 400; margin-left: 2px; }
+}
+  .metric-card .label { 
+    font-size: 11px; 
+    color: gray; 
+    text-transform: uppercase; 
+    letter-spacing: 0.05em; 
+    margin-bottom: 6px;
+}
+
+  .metric-card .value {
+    font-size: 22px; 
+    font-weight: 600; 
+    line-height: 1;
+}
+  .metric-card .unit {
+    font-size: 12px; 
+    color: gray; 
+    font-weight: 400; 
+    margin-left: 2px;
+}
 
   .card {
     background: white;
@@ -104,17 +140,26 @@
     border-radius: var(--radius);
     padding: 20px;
     margin-bottom: 20px;
-  }
+}
   .card-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
     margin-bottom: 16px;
-  }
-  .card-title { font-size: 15px; font-weight: 600; }
-  .card-actions { display: flex; gap: 8px; }
+}
+  .card-title {
+    font-size: 15px;
+    font-weight: 600;
+}
+  .card-actions { 
+    display: flex;
+     gap: 8px;
+}
 
-  .chart-wrap { position: relative; height: 220px; }
+  .chart-wrap {
+    position: relative;
+    height: 220px;
+}
 
   table { width: 100%; border-collapse: collapse; font-size: 13px; }
   th {

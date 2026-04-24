@@ -52,9 +52,9 @@ function processFile(file) {
         showError('Required columns missing. Make sure this is a Harvey CSV file (needs: timestamp_ms, rr_ms, hr_bpm, phase, event).');
         return;
       }
-
-      const validRows = allRows.filter(r => {
-        const rr = parseFloat(r.rr_ms);
+       //give info if rr_ms is more than 300 but less than 2000 
+      const validRows = allRows.filter(row => {
+        const rr = parseFloat(row.rr_ms);
         return rr >= 300 && rr <= 2000;
       });
 
@@ -80,7 +80,7 @@ function buildPhases(allRows){
             const phase = parseInt(r.phase,10);
 
             if(event!=='')return;
-            if(!(rr >=300 && rr <= 2000)) return;
+            if(!(rr >0)) return;
             if(isNaN(phase)) return;
 
             if (!phaseMap[phase]){
@@ -96,6 +96,13 @@ function buildPhases(allRows){
             label: `Phase ${n}`,
             rows:phaseMap[n]
         }))
+}
+
+function getValidRows(rows){
+    return rows.filter(r=>{
+    const rr = parseFloat(r.rr_ms);
+    return rr >= 300 && rr <= 2000;
+    })
 }
 
 function calcMetrics(rows) {
@@ -130,18 +137,84 @@ function calcMetrics(rows) {
   };
 }
 
+function calculateDataQuality(originalRows,retainedRows){
+    const recorded = originalRows.length;
+    const retained = retainedRows.length;
+    const handled = recorded - retained;
+
+    const percentRetained = recorded > 0 ? (retained / recorded) * 100:0
+
+    let rating = "good";
+    if(percentRetained<85){
+        rating = "Poor";
+    }
+    else if(percentRetained<95){
+        rating="Fair"
+    }
+    return{
+        recorded,
+        retained,
+        handled,
+        rating,
+        percentRetained: percentRetained.toFixed(1)
+    };
+}
+
+
+
 function renderResults(allRows,allValid, phases) {
   uploadCard.style.display = 'none';
   results.style.display = 'block';
 
   const sessionMetrics = calcMetrics(allValid);
-  const phaseMetrics = phases.map(p => ({ label: p.label, m: calcMetrics(p.rows) }));
+  const phaseMetrics = phases.map(p=>{
+    const validRows = getValidRows(p.rows);
+    return{label: p.label,m:calcMetrics(validRows)}
+  })
+  const phaseQuality = phases.map(p=>{
+    const validRows = getValidRows(p.rows);
+    return{
+        label: p.label,
+        q: calculateDataQuality(p.rows,validRows)
+    }
+  })
 
   renderLegend(phases);
   renderMetricCards(sessionMetrics, phaseMetrics);
+  renderQualitySummary(phaseQuality);
   renderCharts(allRows,allValid, phases);
   renderTable(sessionMetrics, phaseMetrics);
-  summaryData = { session: sessionMetrics, phases: phaseMetrics };
+  summaryData = { session: sessionMetrics, phases: phaseMetrics, quality:phaseQuality };
+}
+
+function renderQualitySummary(phaseQuality){
+    const table = 
+    document.getElementById("qualityTable")
+
+    table.innerHTML = `
+    <thead>
+        <tr>
+            <th> Phase </th>
+            <th> beats recorded</th>
+            <th> beats retained </th>
+            <th> Beats handled </th>
+            <th> rating </th>
+        </tr>
+        </thead>
+        <tbody>
+            ${phaseQuality.map(p => `
+                <tr>
+                <td>${p.label}</td>
+                <td>${p.q.recorded}</td>
+                <td>${p.q.retained}</td>
+                <td>${p.q.handled}</td>
+                <td>${p.q.rating} (${p.q.percentRetained}%)</td>
+                </tr>
+            `).join('')}
+    </tbody>
+
+    `;
+   
 }
 
 //takes the data and updates the ui

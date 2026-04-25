@@ -14,6 +14,8 @@
 <header>
   <h1>WALTER</h1>
   <p>HRV Analyser — Heart Rate Variability for psychology students</p>
+
+  <button class = "btn btn-sm" onclick="toggleDarkMode()">Toggle dark mode</button>
 </header>
 
 <main>
@@ -30,7 +32,16 @@
     <p style="margin-top:12px; font-size:12px; color:var(--gray-text);">Your data never leaves your device — all analysis runs in the browser.</p>
   </div>
 
+
   <div class="results" id="results">
+
+    <div class = "card" id = "sessionMetaCard">
+    <div class = "card-header">
+        <span class = "card-title"> session details</span>
+    </div>
+    <div id = "sessionMeta"></div>
+    </div>
+    
     <div class="phase-legend" id="phaseLegend"></div>
 
     <div class="metrics-grid" id="metricsGrid"></div>

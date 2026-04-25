@@ -64,7 +64,7 @@ function processFile(file) {
       }
 
       const phases = buildPhases(allRows);
-      renderResults(allRows,validRows, phases);
+      renderResults(file.name,allRows,validRows, phases);
     },
     error: function() { showError('Could not read the file. Make sure it is a valid CSV.'); }
   });
@@ -160,13 +160,38 @@ function calculateDataQuality(originalRows,retainedRows){
     };
 }
 
+function parseFilenameMeta(filename){
+    const baseName = filename.replace(/\.csv$/i,"");
+        const parts = baseName.split("_");
 
+        return{
+            filename:filename,
+            participantId:parts[0]||'Unkown',
+            sessionType:parts[1]||"Uknown",
+            date:parts[2]||"Unknown"
+        };
+}
 
-function renderResults(allRows,allValid, phases) {
+function renderSessionMeta(fileName,sessionMetrics){
+    const meta = parseFilenameMeta(fileName);
+    const box = document.getElementById("sessionMeta")
+
+    box.innerHTML = `
+    <p><strong>Filename:</strong>${meta.filename}</p>
+    <p><strong>Participant ID:</strong>${meta.participantId}
+    <p><strong>Session type:</strong>${meta.sessionType}</p>
+    <p><strong>Date:</strong>${meta.date}</p>
+    <p><strong>Total duration:</strong>${sessionMetrics.duration}s</p>
+
+    `;
+}
+
+function renderResults(fileName,allRows,allValid, phases) {
   uploadCard.style.display = 'none';
   results.style.display = 'block';
 
   const sessionMetrics = calcMetrics(allValid);
+  renderSessionMeta(fileName,sessionMetrics)
   const phaseMetrics = phases.map(p=>{
     const validRows = getValidRows(p.rows);
     return{label: p.label,m:calcMetrics(validRows)}
@@ -441,6 +466,10 @@ function downloadCSV() {
   link.download = 'walter_summary.csv';
   link.href = URL.createObjectURL(blob);
   link.click();
+}
+
+function toggleDarkMode(){
+    document.body.classList.toggle('dark')
 }
 
 //clears everthing and goes back to the upload screen 

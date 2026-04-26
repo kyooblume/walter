@@ -10,6 +10,7 @@ const PHASE_COLORS = [
 let rrChartInst = null;
 let hrChartInst = null;
 let summaryData = [];
+let phaseLabels = {};
 
 const fileInput = document.getElementById('fileInput');
 const uploadCard = document.getElementById('uploadCard');
@@ -93,7 +94,8 @@ function buildPhases(allRows){
         .sort((a,b) => a-b);
 
         return phaseNumbers.map(n => ({
-            label: `Phase ${n}`,
+            label: phaseLabels[n] || `Phase ${n}`,
+            phaseNumber:n,
             rows:phaseMap[n]
         }))
 }
@@ -166,9 +168,9 @@ function parseFilenameMeta(filename){
 
         return{
             filename:filename,
-            participantId:parts[0]||'Unkown',
+            participantId:parts[0]||'Uknown',
             sessionType:parts[1]||"Uknown",
-            date:parts[2]||"Unknown"
+            date:parts[2]||"Uknown"
         };
 }
 
@@ -178,7 +180,7 @@ function renderSessionMeta(fileName,sessionMetrics){
 
     box.innerHTML = `
     <p><strong>Filename:</strong>${meta.filename}</p>
-    <p><strong>Participant ID:</strong>${meta.participantId}
+    <p><strong>Participant ID:</strong>${meta.participantId}</p>
     <p><strong>Session type:</strong>${meta.sessionType}</p>
     <p><strong>Date:</strong>${meta.date}</p>
     <p><strong>Total duration:</strong>${sessionMetrics.duration}s</p>
@@ -209,7 +211,7 @@ function renderResults(fileName,allRows,allValid, phases) {
   renderQualitySummary(phaseQuality);
   renderCharts(allRows,allValid, phases);
   renderTable(sessionMetrics, phaseMetrics);
-  summaryData = { session: sessionMetrics, phases: phaseMetrics, quality:phaseQuality };
+  summaryData = { session: sessionMetrics, phases: phaseMetrics, quality:phaseQuality,fileName,allRows,allValid,phasesRaw:phases };
 }
 
 function renderQualitySummary(phaseQuality){
@@ -252,7 +254,10 @@ function renderLegend(phases) {
     badge.className = 'phase-badge';
     badge.style.background = c.bg;
     badge.style.color = c.text;
-    badge.innerHTML = `<span class="phase-dot" style="background:${c.border}"></span>${p.label}`;
+    badge.innerHTML = `<span class="phase-dot" style="background:${c.border}"></span>
+    <input type = "text" value = "${p.label}"
+    style = "width:90px;font-size:11px;"
+    onchange = "updatePhaseLabel(${p.phaseNumber},this.value)"/>`;
     legend.appendChild(badge);
   });
   if (phases.length > 1) {
@@ -470,6 +475,19 @@ function downloadCSV() {
 
 function toggleDarkMode(){
     document.body.classList.toggle('dark')
+}
+
+function updatePhaseLabel(phaseNumber,newLabel){
+    phaseLabels[phaseNumber] = newLabel.trim() || `Phase ${phaseNumber}`;
+
+    const newPhases = buildPhases(summaryData.allRows)
+
+    renderResults(
+        summaryData.fileName,
+        summaryData.allRows,
+        summaryData.allValid,
+        newPhases
+    );
 }
 
 //clears everthing and goes back to the upload screen 

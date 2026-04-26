@@ -15,13 +15,10 @@ const PHASE_COLORS = [
 // ----- Global variables -----
 let rrChartInst  = null;   // Chart.js instance for the tachogram
 let hrChartInst  = null;   // Chart.js instance for the heart rate chart
-let summaryData  = [];     // Holds processed results for CSV export
-let parsedPhases   = null; // Stores parsed phase data so settings changes can trigger recalculation without re-uploading
+let summaryData  = {};     // Holds processed results for CSV export
+let parsedPhases   = null; // Stores parsed phase data for settings recalculation
 let parsedAllValid = null; // Stores all valid rows across all phases
-let rrChartInst = null;
-let hrChartInst = null;
-let summaryData = [];
-let phaseLabels = {};
+let phaseLabels  = {};     // Stores custom phase label names (teammate's feature)
 
 // ----- Get DOM elements -----
 const fileInput  = document.getElementById('fileInput');
@@ -33,12 +30,10 @@ const results    = document.getElementById('results');
 // Part 1 — File upload and validation
 // ============================================================
 
-// Trigger file processing when user selects a file via the input
 fileInput.addEventListener('change', e => {
   if (e.target.files[0]) processFile(e.target.files[0]);
 });
 
-// Drag and drop support
 uploadCard.addEventListener('dragover',  e => { e.preventDefault(); uploadCard.classList.add('drag-over'); });
 uploadCard.addEventListener('dragleave', () => uploadCard.classList.remove('drag-over'));
 uploadCard.addEventListener('drop', e => {
@@ -62,19 +57,17 @@ function processFile(file) {
     header: true,
     skipEmptyLines: true,
     complete: function(res) {
-      const rows = res.data;
-      const cols = res.meta.fields || [];
+      const allRows = res.data;
+      const cols    = res.meta.fields || [];
 
       // Check required columns are present
       if (!cols.includes('rr_ms') || !cols.includes('timestamp_ms')) {
         showError('Required columns missing. Make sure this is a Harvey CSV file.');
         return;
       }
-       //give info if rr_ms is more than 300 but less than 2000 
-      const validRows = allRows.filter(row => {
-        const rr = parseFloat(row.rr_ms);
-        return rr >= 300 && rr <= 2000;
-      });
+
+      // Stage 1 — Physiological range filter (300–2000ms)
+      const validRows = getValidRows(allRows);
 
       // Require at least 10 valid beats to calculate meaningful HRV
       if (validRows.length < 10) {
@@ -82,62 +75,165 @@ function processFile(file) {
         return;
       }
 
-      const phases = buildPhases(allRows);
-      renderResults(file.name,allRows,validRows, phases);
+      // Save parsed data globally so settings changes can recalculate without re-uploading
+      parsedAllValid = validRows;
+      parsedPhases   = buildPhases(allRows);
+
+      renderResults(file.name, allRows, validRows, parsedPhases);
     },
     error: function() { showError('Could not read the file. Make sure it is a valid CSV.'); }
   });
 }
 
-//goes through the rows and collects timestamps where a phase marker is
-function buildPhases(allRows){
-        const phaseMap = {};
+// ============================================================
+// Part 2 — Phase construction
+// Groups rows by the value in the phase column (teammate's Task 3 fix)
+// ============================================================
+function buildPhases(allRows) {
+  const phaseMap = {};
 
-        allRows.forEach(r => {
-            const event = (r.event || '').trim();
-            const rr = parseFloat(r.rr_ms);
-            const phase = parseInt(r.phase,10);
+  allRows.forEach(r => {
+    const event = (r.event || '').trim();
+    const rr    = parseFloat(r.rr_ms);
+    const phase = parseInt(r.phase, 10);
 
-            if(event!=='')return;
-            if(!(rr >0)) return;
-            if(isNaN(phase)) return;
+    // Skip event rows, rows with no valid RR, and rows with no phase number
+    if (event !== '') return;
+    if (!(rr > 0))    return;
+    if (isNaN(phase)) return;
 
-            if (!phaseMap[phase]){
-                phaseMap[phase] = [];
-            }
-            phaseMap[phase].push(r);
-        });
-        const phaseNumbers = Object.keys(phaseMap)
-        .map(Number)
-        .sort((a,b) => a-b);
+    if (!phaseMap[phase]) phaseMap[phase] = [];
+    phaseMap[phase].push(r);
+  });
 
-        return phaseNumbers.map(n => ({
-            label: phaseLabels[n] || `Phase ${n}`,
-            phaseNumber:n,
-            rows:phaseMap[n]
-        }))
+  const phaseNumbers = Object.keys(phaseMap).map(Number).sort((a, b) => a - b);
+
+  return phaseNumbers.map(n => ({
+    label:       phaseLabels[n] || `Phase ${n}`,
+    phaseNumber: n,
+    rows:        phaseMap[n]
+  }));
 }
 
-function getValidRows(rows){
-    return rows.filter(r=>{
+// Returns only rows with physiologically valid RR intervals (300–2000ms)
+function getValidRows(rows) {
+  return rows.filter(r => {
     const rr = parseFloat(r.rr_ms);
     return rr >= 300 && rr <= 2000;
-    })
+  });
 }
 
-function calcMetrics(rows) {
-  const rr = rows.map(r => parseFloat(r.rr_ms));
-  const hr = rows.map(r => parseFloat(r.hr_bpm)).filter(v => !isNaN(v));
+// ============================================================
+// Part 3 — Artefact handling
+//
+// rrArray   : array of RR interval values (numbers)
+// method    : 'interpolate' | 'delete' | 'none'
+// threshold : percentage threshold (e.g. 20 means 20%)
+// returns   : { cleaned: processed array, deletedIndices: Set of deleted positions }
+//
+// An artefact is an RR interval that deviates from the previous one
+// by more than the threshold percentage. A single artefact can
+// massively inflate RMSSD if left uncorrected.
+// ============================================================
+function handleArtefacts(rrArray, method, threshold) {
+  const thresholdRate = threshold / 100;
+
+  // Skip Stage 2 filtering if method is 'none' or not enough data
+  if (method === 'none' || rrArray.length < 2) {
+    return { cleaned: [...rrArray], deletedIndices: new Set() };
+  }
+
+  const result     = [...rrArray];
+  const isArtefact = new Array(result.length).fill(false);
+
+  // Step 1: Detect artefacts
+  for (let i = 1; i < result.length; i++) {
+    const diff = Math.abs(result[i] - result[i - 1]) / result[i - 1];
+    if (diff > thresholdRate) isArtefact[i] = true;
+  }
+
+  // Step 2: Apply interpolation if selected
+  if (method === 'interpolate') {
+    for (let i = 1; i < result.length - 1; i++) {
+      if (!isArtefact[i]) continue;
+      // If a neighbour is also an artefact, fall back to deletion
+      if (isArtefact[i - 1] || isArtefact[i + 1]) {
+        isArtefact[i] = 'delete';
+      } else {
+        // Replace with average of surrounding beats (linear interpolation)
+        result[i]     = (result[i - 1] + result[i + 1]) / 2;
+        isArtefact[i] = false;
+      }
+    }
+  }
+
+  // Step 3: Remove beats marked for deletion and record their positions
+  const deletedIndices = new Set();
+  const cleaned = [];
+  result.forEach((val, i) => {
+    if (isArtefact[i] === true || isArtefact[i] === 'delete') {
+      deletedIndices.add(cleaned.length);
+    } else {
+      cleaned.push(val);
+    }
+  });
+
+  return { cleaned, deletedIndices };
+}
+
+// ============================================================
+// Part 3.5 — Auto-generated methods statement
+// ============================================================
+function generateMethodsStatement(method, threshold) {
+  if (method === 'interpolate') {
+    return `Artefact handling: RR intervals deviating more than ${threshold}% from the preceding interval were replaced using linear interpolation between neighbouring beats.`;
+  }
+  if (method === 'delete') {
+    return `Artefact handling: RR intervals deviating more than ${threshold}% from the preceding interval were removed from the series.`;
+  }
+  return 'Artefact handling: No successive difference filtering was applied. Only physiological range filtering (300–2000ms) was used.';
+}
+
+// ============================================================
+// Part 3.9 — Data quality calculation (teammate's Task 6)
+// ============================================================
+function calculateDataQuality(originalRows, retainedRows) {
+  const recorded = originalRows.length;
+  const retained = retainedRows.length;
+  const handled  = recorded - retained;
+  const percentRetained = recorded > 0 ? ((retained / recorded) * 100).toFixed(1) : 0;
+
+  let rating = 'good';
+  if (percentRetained < 85) rating = 'Poor';
+  else if (percentRetained < 95) rating = 'fair';
+
+  return { recorded, retained, handled, rating, percentRetained };
+}
+
+// ============================================================
+// Part 4 — Metric calculation
+// Applies artefact handling then calculates all HRV metrics
+// ============================================================
+function calcMetrics(rows, method, threshold) {
+  const rawRR = rows.map(r => parseFloat(r.rr_ms));
+  const hr    = rows.map(r => parseFloat(r.hr_bpm)).filter(v => !isNaN(v));
+
+  // Apply artefact handling to get the cleaned RR array
+  const { cleaned: rr, deletedIndices } = handleArtefacts(
+    rawRR,
+    method    || 'interpolate',
+    threshold || 20
+  );
+
+  if (rr.length < 2) return null;
 
   const meanRR = rr.reduce((a, b) => a + b, 0) / rr.length;
   const meanHR = hr.length ? hr.reduce((a, b) => a + b, 0) / hr.length : 60000 / meanRR;
 
-  // Calculate successive differences for RMSSD and pNN50
-  // Skip differences that span a deletion gap (deletion boundary problem):
-  // when a beat is deleted, the beats either side were not truly consecutive
+  // Skip differences that span a deletion gap (deletion boundary problem)
   const diffs = [];
   for (let i = 1; i < rr.length; i++) {
-    if (deletedIndices.has(i)) continue; // Skip boundary caused by a deleted beat
+    if (deletedIndices.has(i)) continue;
     diffs.push(rr[i] - rr[i - 1]);
   }
 
@@ -163,47 +259,54 @@ function calcMetrics(rows) {
 }
 
 // ============================================================
-// Main render entry point — called after file upload and after settings changes
+// Main render entry point
 // ============================================================
-function renderResults(allValid, phases) {
+function renderResults(fileName, allRows, allValid, phases) {
   uploadCard.style.display = 'none';
   results.style.display    = 'block';
 
   const method    = getArtefactMethod();
   const threshold = getThreshold();
 
+  // Calculate metrics for full session and each phase
   const sessionMetrics = calcMetrics(allValid, method, threshold);
-  const phaseMetrics   = phases.map(p => ({ label: p.label, m: calcMetrics(p.rows, method, threshold) }));
-  const sessionMetrics = calcMetrics(allValid);
-  renderSessionMeta(fileName,sessionMetrics)
-  const phaseMetrics = phases.map(p=>{
-    const validRows = getValidRows(p.rows);
-    return{label: p.label,m:calcMetrics(validRows)}
-  })
-  const phaseQuality = phases.map(p=>{
-    const validRows = getValidRows(p.rows);
-    return{
-        label: p.label,
-        q: calculateDataQuality(p.rows,validRows)
-    }
-  })
+  const phaseMetrics   = phases.map(p => ({
+    label: p.label,
+    m:     calcMetrics(getValidRows(p.rows), method, threshold)
+  }));
+
+  // Calculate data quality per phase (teammate's Task 6)
+  const phaseQuality = phases.map(p => ({
+    label: p.label,
+    q:     calculateDataQuality(p.rows, getValidRows(p.rows))
+  }));
+
+  // Store all data for export and settings recalculation
+  parsedAllValid = allValid;
+  parsedPhases   = phases;
+  summaryData    = {
+    session:   sessionMetrics,
+    phases:    phaseMetrics,
+    method,
+    threshold,
+    fileName,
+    allRows,
+    allValid,
+    phasesRaw: phases
+  };
 
   renderLegend(phases);
-  renderArtefactPanel(method, threshold); // Settings panel — always visible on results page
+  renderArtefactPanel(method, threshold);
   renderMetricCards(sessionMetrics, phaseMetrics);
+  renderQualitySummary(phaseQuality);
   renderCharts(allValid, phases);
   renderTable(sessionMetrics, phaseMetrics);
-
-  summaryData = { session: sessionMetrics, phases: phaseMetrics, method, threshold };
 }
 
 // ============================================================
 // Part 3.4 — Artefact settings panel (UI)
-// Renders radio buttons, threshold slider, and methods statement
-// Any change to a setting triggers immediate recalculation
 // ============================================================
 function renderArtefactPanel(currentMethod, currentThreshold) {
-  // Remove existing panel if present before re-rendering
   const existing = document.getElementById('artefactPanel');
   if (existing) existing.remove();
 
@@ -231,7 +334,7 @@ function renderArtefactPanel(currentMethod, currentThreshold) {
       </label>
     </div>
 
-    <!-- Threshold slider: controls sensitivity of artefact detection (10–30%, default 20%) -->
+    <!-- Threshold slider -->
     <div style="margin-bottom:16px;">
       <div style="display:flex; align-items:center; gap:12px; margin-bottom:4px;">
         <label style="font-size:13px; color:#5F5E5A; min-width:80px;">Threshold</label>
@@ -244,7 +347,7 @@ function renderArtefactPanel(currentMethod, currentThreshold) {
       </div>
     </div>
 
-    <!-- Auto-generated methods statement for student reports -->
+    <!-- Auto-generated methods statement -->
     <div>
       <div style="font-size:13px; color:#5F5E5A; margin-bottom:6px;">Methods statement</div>
       <div style="display:flex; gap:8px; align-items:flex-start;">
@@ -258,14 +361,12 @@ function renderArtefactPanel(currentMethod, currentThreshold) {
     </div>
   `;
 
-  // Insert the panel before the metrics grid
   const metricsGrid = document.getElementById('metricsGrid');
   results.insertBefore(panel, metricsGrid);
 
   attachArtefactListeners();
 }
 
-// Attach change listeners to the radio buttons and threshold slider
 function attachArtefactListeners() {
   document.querySelectorAll('input[name="artefactMethod"]').forEach(radio => {
     radio.addEventListener('change', onSettingsChange);
@@ -279,79 +380,41 @@ function attachArtefactListeners() {
   }
 }
 
-// Called whenever a setting changes — recalculates metrics and redraws table
-// Uses the saved parsed data so the student does not need to re-upload
+// Called whenever a setting changes — recalculates without re-uploading
 function onSettingsChange() {
   if (!parsedAllValid || !parsedPhases) return;
 
   const method    = getArtefactMethod();
   const threshold = getThreshold();
 
-  // Grey out the slider when method is 'none' (threshold has no effect)
   const slider = document.getElementById('thresholdSlider');
   if (slider) slider.disabled = (method === 'none');
 
-  // Update the methods statement text in real time
   const stmtEl = document.getElementById('methodsStatement');
   if (stmtEl) stmtEl.value = generateMethodsStatement(method, threshold);
 
-  // Recalculate and redraw metrics and table only (charts are not redrawn for performance)
   const sessionMetrics = calcMetrics(parsedAllValid, method, threshold);
-  const phaseMetrics   = parsedPhases.map(p => ({ label: p.label, m: calcMetrics(p.rows, method, threshold) }));
+  const phaseMetrics   = parsedPhases.map(p => ({
+    label: p.label,
+    m:     calcMetrics(getValidRows(p.rows), method, threshold)
+  }));
 
   renderMetricCards(sessionMetrics, phaseMetrics);
   renderTable(sessionMetrics, phaseMetrics);
 
-  summaryData = { session: sessionMetrics, phases: phaseMetrics, method, threshold };
+  summaryData = { ...summaryData, session: sessionMetrics, phases: phaseMetrics, method, threshold };
 }
 
-// Returns the currently selected artefact method from the radio buttons
 function getArtefactMethod() {
   const checked = document.querySelector('input[name="artefactMethod"]:checked');
   return checked ? checked.value : 'interpolate';
 }
 
-// Returns the current threshold slider value as an integer
 function getThreshold() {
   const slider = document.getElementById('thresholdSlider');
   return slider ? parseInt(slider.value) : 20;
-  renderQualitySummary(phaseQuality);
-  renderCharts(allRows,allValid, phases);
-  renderTable(sessionMetrics, phaseMetrics);
-  summaryData = { session: sessionMetrics, phases: phaseMetrics, quality:phaseQuality,fileName,allRows,allValid,phasesRaw:phases };
 }
 
-function renderQualitySummary(phaseQuality){
-    const table = 
-    document.getElementById("qualityTable")
-
-    table.innerHTML = `
-    <thead>
-        <tr>
-            <th> Phase </th>
-            <th> beats recorded</th>
-            <th> beats retained </th>
-            <th> Beats handled </th>
-            <th> rating </th>
-        </tr>
-        </thead>
-        <tbody>
-            ${phaseQuality.map(p => `
-                <tr>
-                <td>${p.label}</td>
-                <td>${p.q.recorded}</td>
-                <td>${p.q.retained}</td>
-                <td>${p.q.handled}</td>
-                <td>${p.q.rating} (${p.q.percentRetained}%)</td>
-                </tr>
-            `).join('')}
-    </tbody>
-
-    `;
-   
-}
-
-// Copies the methods statement text to the clipboard
 function copyMethodsStatement() {
   const stmt = document.getElementById('methodsStatement');
   if (!stmt) return;
@@ -364,10 +427,10 @@ function copyMethodsStatement() {
 }
 
 // ============================================================
-// Part 5 — Rendering: legend, metric cards, charts, table
+// Part 5 — Rendering: legend, metric cards, quality summary, charts, table
 // ============================================================
 
-// Renders phase colour badges at the top of the results page
+// Renders phase colour badges with editable label inputs (teammate's feature)
 function renderLegend(phases) {
   const legend = document.getElementById('phaseLegend');
   legend.innerHTML = '';
@@ -377,12 +440,11 @@ function renderLegend(phases) {
     badge.className        = 'phase-badge';
     badge.style.background = c.bg;
     badge.style.color      = c.text;
-    badge.innerHTML = `<span class="phase-dot" style="background:${c.border}"></span>${p.label}`;
-    badge.style.color = c.text;
-    badge.innerHTML = `<span class="phase-dot" style="background:${c.border}"></span>
-    <input type = "text" value = "${p.label}"
-    style = "width:90px;font-size:11px;"
-    onchange = "updatePhaseLabel(${p.phaseNumber},this.value)"/>`;
+    badge.innerHTML = `
+      <span class="phase-dot" style="background:${c.border}"></span>
+      <input type="text" value="${p.label}"
+        style="width:90px;font-size:11px;border:none;background:transparent;color:${c.text};"
+        onchange="updatePhaseLabel(${p.phaseNumber}, this.value)"/>`;
     legend.appendChild(badge);
   });
   if (phases.length > 1) {
@@ -395,7 +457,7 @@ function renderLegend(phases) {
   }
 }
 
-// Renders the four summary metric cards (RMSSD, Mean HR, SDNN, pNN50)
+// Renders the four summary metric cards
 function renderMetricCards(s, phaseMetrics) {
   const grid    = document.getElementById('metricsGrid');
   const metrics = [
@@ -418,17 +480,43 @@ function renderMetricCards(s, phaseMetrics) {
   }).join('');
 }
 
-// Renders the tachogram (RR interval chart) and heart rate chart using Chart.js
+// Renders the data quality summary table (teammate's Task 6)
+function renderQualitySummary(phaseQuality) {
+  const table = document.getElementById('qualityTable');
+  if (!table) return; // Guard in case element doesn't exist in HTML yet
+
+  table.innerHTML = `
+    <thead>
+      <tr>
+        <th>Phase</th>
+        <th>Beats recorded</th>
+        <th>Beats retained</th>
+        <th>Beats handled</th>
+        <th>Rating</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${phaseQuality.map(p => `
+        <tr>
+          <td>${p.label}</td>
+          <td>${p.q.recorded}</td>
+          <td>${p.q.retained}</td>
+          <td>${p.q.handled}</td>
+          <td>${p.q.rating} (${p.q.percentRetained}%)</td>
+        </tr>
+      `).join('')}
+    </tbody>`;
+}
+
+// Renders the tachogram and heart rate chart
 function renderCharts(allValid, phases) {
-  // Explicitly register the annotation plugin with Chart.js
-  // Required in Chart.js v4 — loading the script alone is not enough
+  // Explicitly register the annotation plugin — required in Chart.js v4
   if (window.ChartAnnotation) {
     Chart.register(window.ChartAnnotation);
   }
 
   const t0 = parseFloat(allValid[0].timestamp_ms);
 
-  // Build x/y data points — x axis is elapsed seconds from the first data row
   const rrData = allValid.map(r => ({
     x: ((parseFloat(r.timestamp_ms) - t0) / 1000).toFixed(2),
     y: parseFloat(r.rr_ms)
@@ -438,10 +526,10 @@ function renderCharts(allValid, phases) {
     y: parseFloat(r.hr_bpm)
   }));
 
-  // Build annotation objects for phase boundary lines and labels
+  // Phase boundary lines and labels
   const annotations = {};
   phases.forEach((p, i) => {
-    if (i === 0) return; // No boundary line needed before the first phase
+    if (i === 0) return;
     const t    = parseFloat(p.rows[0].timestamp_ms);
     const xVal = ((t - t0) / 1000).toFixed(2);
     const c    = PHASE_COLORS[i % PHASE_COLORS.length];
@@ -456,7 +544,7 @@ function renderCharts(allValid, phases) {
     };
   });
 
-  // Build coloured background boxes for each phase
+  // Phase background colour boxes
   const phaseBackgrounds = phases.map((p, i) => {
     const c    = PHASE_COLORS[i % PHASE_COLORS.length];
     const xMin = ((parseFloat(p.rows[0].timestamp_ms) - t0) / 1000).toFixed(2);
@@ -467,18 +555,16 @@ function renderCharts(allValid, phases) {
   const allAnnotations = { ...annotations };
   phaseBackgrounds.forEach((b, i) => { allAnnotations['bg' + i] = b; });
 
-  // Destroy existing charts before creating new ones to avoid canvas conflicts
   if (rrChartInst) rrChartInst.destroy();
   if (hrChartInst) hrChartInst.destroy();
 
-  // Shared chart options factory — used for both tachogram and HR chart
   const makeOptions = (ylabel, annots) => ({
     responsive: true, maintainAspectRatio: false, animation: false,
     elements: { point: { radius: 0 }, line: { borderWidth: 1.5, tension: 0.2 } },
     plugins: {
-      legend: { display: false },
-      tooltip: { callbacks: { label: ctx => `${ctx.parsed.y.toFixed(1)} ${ylabel}` } },
-      annotation: { annotations: annots } // Phase boundary lines and background boxes
+      legend:     { display: false },
+      tooltip:    { callbacks: { label: ctx => `${ctx.parsed.y.toFixed(1)} ${ylabel}` } },
+      annotation: { annotations: annots }
     },
     scales: {
       x: { type: 'linear', title: { display: true, text: 'Time (s)', font: { size: 11 }, color: '#888780' }, ticks: { font: { size: 11 }, color: '#888780' }, grid: { color: '#F1EFE8' } },
@@ -498,7 +584,7 @@ function renderCharts(allValid, phases) {
   });
 }
 
-// Renders the summary metrics table with one column per phase plus a full session column
+// Renders the summary metrics table
 function renderTable(session, phaseMetrics) {
   const metrics = [
     { label: 'Beat count', key: 'count',    unit: 'beats' },
@@ -536,7 +622,6 @@ function renderTable(session, phaseMetrics) {
 // Part 6 — Export
 // ============================================================
 
-// Downloads a chart canvas as a PNG image
 function downloadChart(id, filename) {
   const canvas = document.getElementById(id);
   const link   = document.createElement('a');
@@ -545,9 +630,7 @@ function downloadChart(id, filename) {
   link.click();
 }
 
-// Downloads the summary table as a CSV file
-// The methods statement is included as a comment line at the top
-// so the record of which artefact method was used travels with the data
+// Downloads summary CSV with methods statement as a comment line at the top
 function downloadCSV() {
   if (!summaryData.session) return;
   const metrics = [
@@ -578,31 +661,26 @@ function downloadCSV() {
   link.click();
 }
 
+// Toggle dark mode (teammate's feature)
+function toggleDarkMode() {
+  document.body.classList.toggle('dark');
+}
+
+// Update a phase label and re-render (teammate's feature)
+function updatePhaseLabel(phaseNumber, newLabel) {
+  phaseLabels[phaseNumber] = newLabel.trim() || `Phase ${phaseNumber}`;
+  const newPhases = buildPhases(summaryData.allRows);
+  renderResults(summaryData.fileName, summaryData.allRows, summaryData.allValid, newPhases);
+}
+
 // Resets the app to the upload screen and clears all stored data
-function toggleDarkMode(){
-    document.body.classList.toggle('dark')
-}
-
-function updatePhaseLabel(phaseNumber,newLabel){
-    phaseLabels[phaseNumber] = newLabel.trim() || `Phase ${phaseNumber}`;
-
-    const newPhases = buildPhases(summaryData.allRows)
-
-    renderResults(
-        summaryData.fileName,
-        summaryData.allRows,
-        summaryData.allValid,
-        newPhases
-    );
-}
-
-//clears everthing and goes back to the upload screen 
 function resetApp() {
   uploadCard.style.display = 'block';
   results.style.display    = 'none';
   fileInput.value          = '';
   parsedAllValid           = null;
   parsedPhases             = null;
+  phaseLabels              = {};
   hideError();
   if (rrChartInst) { rrChartInst.destroy(); rrChartInst = null; }
   if (hrChartInst) { hrChartInst.destroy(); hrChartInst = null; }

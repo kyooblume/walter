@@ -13,9 +13,6 @@ const PHASE_COLORS = [
 ];
 
 // ----- Global variables -----
-let rrChartInst  = null;   // Chart.js instance for the tachogram
-let hrChartInst  = null;   // Chart.js instance for the heart rate chart
-let summaryData  = [];     // Holds processed results for CSV export
 let parsedPhases   = null; // Stores parsed phase data so settings changes can trigger recalculation without re-uploading
 let parsedAllValid = null; // Stores all valid rows across all phases
 let rrChartInst = null;
@@ -62,7 +59,7 @@ function processFile(file) {
     header: true,
     skipEmptyLines: true,
     complete: function(res) {
-      const rows = res.data;
+      const allRows = res.data;
       const cols = res.meta.fields || [];
 
       // Check required columns are present
@@ -125,8 +122,9 @@ function getValidRows(rows){
     })
 }
 
-function calcMetrics(rows) {
+function calcMetrics(rows,method = 'interpolate',threshold = 20) {
   const rr = rows.map(r => parseFloat(r.rr_ms));
+  const deletedIndices = new Set();
   const hr = rows.map(r => parseFloat(r.hr_bpm)).filter(v => !isNaN(v));
 
   const meanRR = rr.reduce((a, b) => a + b, 0) / rr.length;
@@ -165,36 +163,41 @@ function calcMetrics(rows) {
 // ============================================================
 // Main render entry point — called after file upload and after settings changes
 // ============================================================
-function renderResults(allValid, phases) {
+function renderResults(fileName,allRows,allValid, phases) {
   uploadCard.style.display = 'none';
   results.style.display    = 'block';
+
+  parsedAllValid = allValid;
+  parsedPhases = phases;
 
   const method    = getArtefactMethod();
   const threshold = getThreshold();
 
   const sessionMetrics = calcMetrics(allValid, method, threshold);
-  const phaseMetrics   = phases.map(p => ({ label: p.label, m: calcMetrics(p.rows, method, threshold) }));
-  const sessionMetrics = calcMetrics(allValid);
-  renderSessionMeta(fileName,sessionMetrics)
-  const phaseMetrics = phases.map(p=>{
+  const phaseMetrics   = phases.map(p => {
+  
     const validRows = getValidRows(p.rows);
-    return{label: p.label,m:calcMetrics(validRows)}
-  })
+    return{label: p.label,m:calcMetrics(validRows,method,threshold)};
+  });
+
+  renderSessionMeta(fileName,sessionMetrics)
+
   const phaseQuality = phases.map(p=>{
     const validRows = getValidRows(p.rows);
     return{
         label: p.label,
         q: calculateDataQuality(p.rows,validRows)
-    }
-  })
+    };
+  });
 
   renderLegend(phases);
   renderArtefactPanel(method, threshold); // Settings panel — always visible on results page
   renderMetricCards(sessionMetrics, phaseMetrics);
+  renderQualitySummary(phaseQuality);
   renderCharts(allValid, phases);
   renderTable(sessionMetrics, phaseMetrics);
 
-  summaryData = { session: sessionMetrics, phases: phaseMetrics, method, threshold };
+  summaryData = { session: sessionMetrics, phases: phaseMetrics, method, threshold, quality: phaseQuality, fileName, allRows, allValid, phasesRaw: phases };
 }
 
 // ============================================================
@@ -315,10 +318,6 @@ function getArtefactMethod() {
 function getThreshold() {
   const slider = document.getElementById('thresholdSlider');
   return slider ? parseInt(slider.value) : 20;
-  renderQualitySummary(phaseQuality);
-  renderCharts(allRows,allValid, phases);
-  renderTable(sessionMetrics, phaseMetrics);
-  summaryData = { session: sessionMetrics, phases: phaseMetrics, quality:phaseQuality,fileName,allRows,allValid,phasesRaw:phases };
 }
 
 function renderQualitySummary(phaseQuality){
@@ -594,6 +593,48 @@ function updatePhaseLabel(phaseNumber,newLabel){
         summaryData.allValid,
         newPhases
     );
+}
+
+function calculateDataQuality(originalRows,retainedRows){
+    const recorded = originalRows.length;
+    const retained = retainedRows.length;
+    const handled = recorded - retained;
+    const percentRetained = recorded > 0 ? (retained / recorded) * 100:0;
+
+    let rating = "good";
+    if(percentRetained<85) rating = "Poor";
+    else if(percentRetained<95) rating = "Fair";
+
+    return { recorded, retained, handled, rating, percentRetained: percentRetained.toFixed(1)};
+};
+
+function parseFilenameMeta(filename){
+    const baseName = filename.replace(/\.csv$/i,"")
+    const parts = baseName.split("_")
+    return{
+        filename:filename,
+        participantID:parts[0]||'unknown',
+        sessionType:parts[1]||"Unknown",
+        date:parts[2]||"Unknown"
+    };
+}
+
+function renderSessionMeta(fileName,sessionMetrics){
+    const box = document.getElementById("sessionMeta");
+    if(!box) return;
+    const meta = parseFilenameMeta(fileName);
+    box.innerHTML = `
+    <p><strong>Filename:</strong>${meta.filename}</p>
+    <p><strong>Participant ID:</strong>${meta.participantID}</p>
+    <p><strong>Session:</strong>${meta.sessionType}</p>
+    <p><strong>Date:</strong>${meta.date}</p>
+    <p><strong>Total duration:</strong>${sessionMetrics.duration}</p>
+    `;
+}
+
+function generateMethodsStatement(method,threshold){
+    if(method === 'none') return "no artefact correction applied.";
+    return `Artefacts handled using ${method} method at ${threshold}% threshold.`;
 }
 
 //clears everthing and goes back to the upload screen 

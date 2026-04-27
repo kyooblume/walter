@@ -174,11 +174,21 @@ function renderResults(fileName,allRows,allValid, phases) {
   const threshold = getThreshold();
 
   const sessionMetrics = calcMetrics(allValid, method, threshold);
+  let warnings = [];
   const phaseMetrics   = phases.map(p => {
   
     const validRows = getValidRows(p.rows);
+    if(validRows.length < 2){
+      warnings.push(`${p.label}(< 2 beats)`);
+      return{label: p.label,m:null};
+    }
+
+    if(validRows.length < 10) warnings.push(`${p.label}(< 10 beats)`);
     return{label: p.label,m:calcMetrics(validRows,method,threshold)};
   });
+
+  if(warnings.length > 0) showError("Warning, insufficant data in: " + warnings.join(", "))
+    else hideError();
 
   renderSessionMeta(fileName,sessionMetrics)
 
@@ -300,12 +310,26 @@ function onSettingsChange() {
 
   // Recalculate and redraw metrics and table only (charts are not redrawn for performance)
   const sessionMetrics = calcMetrics(parsedAllValid, method, threshold);
-  const phaseMetrics   = parsedPhases.map(p => ({ label: p.label, m: calcMetrics(p.rows, method, threshold) }));
+    let warnings = [];
+  const phaseMetrics   = parsedPhases.map(p => {
+  
+    const validRows = getValidRows(p.rows);
+    if(validRows.length < 2){
+      warnings.push(`${p.label}(< 2 beats)`);
+      return{label: p.label, m: null};
+    }
 
-  renderMetricCards(sessionMetrics, phaseMetrics);
-  renderTable(sessionMetrics, phaseMetrics);
+    if(validRows.length < 10) warnings.push(`${p.label}(< 10 beats)`);
+    return{label: p.label,m:calcMetrics(validRows,method,threshold)};
+  });
 
+  if(warnings.length > 0) showError("Warning, insufficant data in: " + warnings.join(", "))
+    else hideError();
   summaryData = { session: sessionMetrics, phases: phaseMetrics, method, threshold };
+  if (summaryData.fileName) renderSessionMeta(summaryData.fileName,sessionMetrics);
+
+  renderMetricCards(sessionMetrics,phaseMetrics);
+  renderTable(sessionMetrics,phaseMetrics);
 }
 
 // Returns the currently selected artefact method from the radio buttons
@@ -523,7 +547,8 @@ function renderTable(session, phaseMetrics) {
       ${metrics.map(m => {
         const phaseCells  = phaseMetrics.map((p, i) => {
           const c = PHASE_COLORS[i % PHASE_COLORS.length];
-          return `<td style="color:${c.text};font-weight:500">${p.m ? p.m[m.key] : '—'}</td>`;
+          const fallback = m.key === 'count' ? 'Insufficant data': '-'
+          return `<td style="color:${c.text};font-weight:500">${p.m ? p.m[m.key] : fallback}</td>`;
         }).join('');
         const sessionCell = phaseMetrics.length > 0 ? `<td>${session ? session[m.key] : '—'}</td>` : '';
         return `<tr><td class="metric-name">${m.label}</td><td class="unit-cell">${m.unit}</td>${phaseCells}${sessionCell}</tr>`;

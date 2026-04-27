@@ -122,20 +122,72 @@ function getValidRows(rows){
     })
 }
 
-function calcMetrics(rows,method = 'interpolate',threshold = 20) {
-  const rr = rows.map(r => parseFloat(r.rr_ms));
+// ============================================================
+// Part 3 — Artefact handling
+// Detects and handles artefacts before metric calculation
+// ============================================================
+function handleArtefacts(rrArray, method, threshold) {
+  const thresholdRate = threshold / 100;
+
+  // Skip if method is 'none' or not enough data
+  if (method === 'none' || rrArray.length < 2) {
+    return { cleaned: [...rrArray], deletedIndices: new Set() };
+  }
+
+  const result     = [...rrArray];
+  const isArtefact = new Array(result.length).fill(false);
+
+  // Step 1: Detect artefacts — flag beats deviating more than threshold% from previous
+  for (let i = 1; i < result.length; i++) {
+    const diff = Math.abs(result[i] - result[i - 1]) / result[i - 1];
+    if (diff > thresholdRate) isArtefact[i] = true;
+  }
+
+  // Step 2: Apply interpolation if selected
+  if (method === 'interpolate') {
+    for (let i = 1; i < result.length - 1; i++) {
+      if (!isArtefact[i]) continue;
+      // If a neighbour is also an artefact, fall back to deletion
+      if (isArtefact[i - 1] || isArtefact[i + 1]) {
+        isArtefact[i] = 'delete';
+      } else {
+        // Replace with average of surrounding beats (linear interpolation)
+        result[i]     = (result[i - 1] + result[i + 1]) / 2;
+        isArtefact[i] = false;
+      }
+    }
+  }
+
+  // Step 3: Remove beats marked for deletion and record their positions
   const deletedIndices = new Set();
-  const hr = rows.map(r => parseFloat(r.hr_bpm)).filter(v => !isNaN(v));
+  const cleaned = [];
+  result.forEach((val, i) => {
+    if (isArtefact[i] === true || isArtefact[i] === 'delete') {
+      deletedIndices.add(cleaned.length);
+    } else {
+      cleaned.push(val);
+    }
+  });
+
+  return { cleaned, deletedIndices };
+}
+
+function calcMetrics(rows, method = 'interpolate', threshold = 20) {
+  const rawRR = rows.map(r => parseFloat(r.rr_ms));
+  const hr    = rows.map(r => parseFloat(r.hr_bpm)).filter(v => !isNaN(v));
+
+  // Apply artefact handling to get cleaned RR array and deletion positions
+  const { cleaned: rr, deletedIndices } = handleArtefacts(rawRR, method, threshold);
+
+  if (rr.length < 2) return null;
 
   const meanRR = rr.reduce((a, b) => a + b, 0) / rr.length;
   const meanHR = hr.length ? hr.reduce((a, b) => a + b, 0) / hr.length : 60000 / meanRR;
 
-  // Calculate successive differences for RMSSD and pNN50
-  // Skip differences that span a deletion gap (deletion boundary problem):
-  // when a beat is deleted, the beats either side were not truly consecutive
+  // Skip differences that span a deletion gap (deletion boundary problem)
   const diffs = [];
   for (let i = 1; i < rr.length; i++) {
-    if (deletedIndices.has(i)) continue; // Skip boundary caused by a deleted beat
+    if (deletedIndices.has(i)) continue;
     diffs.push(rr[i] - rr[i - 1]);
   }
 
@@ -632,9 +684,14 @@ function renderSessionMeta(fileName,sessionMetrics){
     `;
 }
 
-function generateMethodsStatement(method,threshold){
-    if(method === 'none') return "no artefact correction applied.";
-    return `Artefacts handled using ${method} method at ${threshold}% threshold.`;
+function generateMethodsStatement(method, threshold) {
+  if (method === 'interpolate') {
+    return `Artefact handling: RR intervals deviating more than ${threshold}% from the preceding interval were replaced using linear interpolation between neighbouring beats.`;
+  }
+  if (method === 'delete') {
+    return `Artefact handling: RR intervals deviating more than ${threshold}% from the preceding interval were removed from the series.`;
+  }
+  return 'Artefact handling: No successive difference filtering was applied. Only physiological range filtering (300–2000ms) was used.';
 }
 
 //clears everthing and goes back to the upload screen 

@@ -129,7 +129,6 @@ function getValidRows(rows){
 function handleArtefacts(rrArray, method, threshold) {
   const thresholdRate = threshold / 100;
 
-  // Skip if method is 'none' or not enough data
   if (method === 'none' || rrArray.length < 2) {
     return { cleaned: [...rrArray], deletedIndices: new Set() };
   }
@@ -147,11 +146,9 @@ function handleArtefacts(rrArray, method, threshold) {
   if (method === 'interpolate') {
     for (let i = 1; i < result.length - 1; i++) {
       if (!isArtefact[i]) continue;
-      // If a neighbour is also an artefact, fall back to deletion
       if (isArtefact[i - 1] || isArtefact[i + 1]) {
         isArtefact[i] = 'delete';
       } else {
-        // Replace with average of surrounding beats (linear interpolation)
         result[i]     = (result[i - 1] + result[i + 1]) / 2;
         isArtefact[i] = false;
       }
@@ -179,15 +176,15 @@ function calcMetrics(rows, method = 'interpolate', threshold = 20) {
   // Apply artefact handling to get cleaned RR array and deletion positions
   const { cleaned: rr, deletedIndices } = handleArtefacts(rawRR, method, threshold);
 
-  if (rr.length < 2) return null;
-
   const meanRR = rr.reduce((a, b) => a + b, 0) / rr.length;
   const meanHR = hr.length ? hr.reduce((a, b) => a + b, 0) / hr.length : 60000 / meanRR;
 
-  // Skip differences that span a deletion gap (deletion boundary problem)
+  // Calculate successive differences for RMSSD and pNN50
+  // Skip differences that span a deletion gap (deletion boundary problem):
+  // when a beat is deleted, the beats either side were not truly consecutive
   const diffs = [];
   for (let i = 1; i < rr.length; i++) {
-    if (deletedIndices.has(i)) continue;
+    if (deletedIndices.has(i)) continue; // Skip boundary caused by a deleted beat
     diffs.push(rr[i] - rr[i - 1]);
   }
 
@@ -352,7 +349,10 @@ function onSettingsChange() {
 
   // Recalculate and redraw metrics and table only (charts are not redrawn for performance)
   const sessionMetrics = calcMetrics(parsedAllValid, method, threshold);
-  const phaseMetrics   = parsedPhases.map(p => ({ label: p.label, m: calcMetrics(p.rows, method, threshold) }));
+  const phaseMetrics   = parsedPhases.map(p => ({
+    label: p.label,
+    m: calcMetrics(getValidRows(p.rows), method, threshold)
+  }));
 
   renderMetricCards(sessionMetrics, phaseMetrics);
   renderTable(sessionMetrics, phaseMetrics);

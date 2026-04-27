@@ -549,7 +549,7 @@ function renderCharts(allValid, phases) {
   });
 }
 
-// Renders the summary metrics table with one column per phase plus a full session column
+// Renders the summary metrics table with one column per phase, change scores, and full session
 function renderTable(session, phaseMetrics) {
   const metrics = [
     { label: 'Beat count', key: 'count',    unit: 'beats' },
@@ -562,25 +562,76 @@ function renderTable(session, phaseMetrics) {
     { label: 'Max RR',     key: 'maxRR',    unit: 'ms'    },
     { label: 'Duration',   key: 'duration', unit: 's'     },
   ];
-  const table      = document.getElementById('summaryTable');
-  const phaseCols  = phaseMetrics.map((p, i) => {
+
+  const table     = document.getElementById('summaryTable');
+  const phaseCols = phaseMetrics.map((p, i) => {
     const c = PHASE_COLORS[i % PHASE_COLORS.length];
     return `<th style="color:${c.text}">${p.label}</th>`;
   }).join('');
+
+  // Show change scores only when there are exactly 2 phases
+  // Change = Phase 2 minus Phase 1 (absolute and percentage)
+  const showChange = phaseMetrics.length === 2 &&
+                     phaseMetrics[0].m &&
+                     phaseMetrics[1].m;
+
+  const changeHeaders = showChange
+    ? `<th style="color:#444441;">Change (abs)</th>
+       <th style="color:#444441;">Change (%)</th>`
+    : '';
+
   const sessionCol = phaseMetrics.length > 0 ? '<th>Full session</th>' : '';
 
   table.innerHTML = `
-    <thead><tr><th>Metric</th><th>Unit</th>${phaseCols}${sessionCol}</tr></thead>
+    <thead><tr>
+      <th>Metric</th><th>Unit</th>
+      ${phaseCols}
+      ${changeHeaders}
+      ${sessionCol}
+    </tr></thead>
     <tbody>
       ${metrics.map(m => {
-        const phaseCells  = phaseMetrics.map((p, i) => {
-          const c = PHASE_COLORS[i % PHASE_COLORS.length];
-          return `<td style="color:${c.text};font-weight:500">${p.m ? p.m[m.key] : '—'}</td>`;
+        const phaseCells = phaseMetrics.map((p, i) => {
+          const c   = PHASE_COLORS[i % PHASE_COLORS.length];
+          const val = p.m ? p.m[m.key] : '—';
+          return `<td style="color:${c.text};font-weight:500">${val}</td>`;
         }).join('');
-        const sessionCell = phaseMetrics.length > 0 ? `<td>${session ? session[m.key] : '—'}</td>` : '';
-        return `<tr><td class="metric-name">${m.label}</td><td class="unit-cell">${m.unit}</td>${phaseCells}${sessionCell}</tr>`;
+
+        // Calculate absolute and percentage change between Phase 1 and Phase 2
+        let changeCells = '';
+        if (showChange) {
+          const v1  = parseFloat(phaseMetrics[0].m[m.key]);
+          const v2  = parseFloat(phaseMetrics[1].m[m.key]);
+          const abs = v2 - v1;
+          const pct = v1 !== 0 ? (abs / v1) * 100 : 0;
+
+          // Colour: red for increase, blue for decrease, gray for no change
+          const absColor = abs > 0 ? '#993C1D' : abs < 0 ? '#185FA5' : '#888780';
+          const sign     = abs > 0 ? '+' : '';
+
+          changeCells = `
+            <td style="color:${absColor};font-weight:500">
+              ${sign}${abs.toFixed(2)}
+            </td>
+            <td style="color:${absColor};font-weight:500">
+              ${sign}${pct.toFixed(1)}%
+            </td>`;
+        }
+
+        const sessionCell = phaseMetrics.length > 0
+          ? `<td>${session ? session[m.key] : '—'}</td>`
+          : '';
+
+        return `<tr>
+          <td class="metric-name">${m.label}</td>
+          <td class="unit-cell">${m.unit}</td>
+          ${phaseCells}
+          ${changeCells}
+          ${sessionCell}
+        </tr>`;
       }).join('')}
     </tbody>`;
+}
 }
 
 // ============================================================
@@ -615,12 +666,34 @@ function downloadCSV() {
   const methodsStmt   = generateMethodsStatement(summaryData.method, summaryData.threshold);
   let csv = `# ${methodsStmt}\n`;
   const phaseHeaders  = summaryData.phases.map(p => p.label).join(',');
+
+  // Include change score headers if exactly 2 phases
+  const showChange    = summaryData.phases.length === 2 &&
+                        summaryData.phases[0].m &&
+                        summaryData.phases[1].m;
+  const changeHeaders = showChange ? ',Change (abs),Change (%)' : '';
   const sessionHeader = summaryData.phases.length > 0 ? ',Full session' : '';
-  csv += `Metric,Unit,${phaseHeaders}${sessionHeader}\n`;
+
+  csv += `Metric,Unit,${phaseHeaders}${changeHeaders}${sessionHeader}\n`;
+
   metrics.forEach(m => {
-    const phaseCells  = summaryData.phases.map(p => p.m ? p.m[m.key] : '').join(',');
-    const sessionCell = summaryData.phases.length > 0 ? ',' + (summaryData.session ? summaryData.session[m.key] : '') : '';
-    csv += `${m.label},${m.unit},${phaseCells}${sessionCell}\n`;
+    const phaseCells = summaryData.phases.map(p => p.m ? p.m[m.key] : '').join(',');
+
+    // Calculate change scores for CSV
+    let changeCells = '';
+    if (showChange) {
+      const v1  = parseFloat(summaryData.phases[0].m[m.key]);
+      const v2  = parseFloat(summaryData.phases[1].m[m.key]);
+      const abs = v2 - v1;
+      const pct = v1 !== 0 ? (abs / v1) * 100 : 0;
+      const sign = abs > 0 ? '+' : '';
+      changeCells = `,${sign}${abs.toFixed(2)},${sign}${pct.toFixed(1)}%`;
+    }
+
+    const sessionCell = summaryData.phases.length > 0
+      ? ',' + (summaryData.session ? summaryData.session[m.key] : '')
+      : '';
+    csv += `${m.label},${m.unit},${phaseCells}${changeCells}${sessionCell}\n`;
   });
   const blob = new Blob([csv], { type: 'text/csv' });
   const link = document.createElement('a');

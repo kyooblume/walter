@@ -667,7 +667,7 @@ function renderTable(session, phaseMetrics) {
       }).join('')}
     </tbody>`;
 }
-}
+
 
 // ============================================================
 // Part 6 — Export

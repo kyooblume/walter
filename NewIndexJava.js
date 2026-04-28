@@ -122,10 +122,59 @@ function getValidRows(rows){
     })
 }
 
-function calcMetrics(rows,method = 'interpolate',threshold = 20) {
-  const rr = rows.map(r => parseFloat(r.rr_ms));
+// ============================================================
+// Part 3 — Artefact handling
+// Detects and handles artefacts before metric calculation
+// ============================================================
+function handleArtefacts(rrArray, method, threshold) {
+  const thresholdRate = threshold / 100;
+
+  if (method === 'none' || rrArray.length < 2) {
+    return { cleaned: [...rrArray], deletedIndices: new Set() };
+  }
+
+  const result     = [...rrArray];
+  const isArtefact = new Array(result.length).fill(false);
+
+  // Step 1: Detect artefacts — flag beats deviating more than threshold% from previous
+  for (let i = 1; i < result.length; i++) {
+    const diff = Math.abs(result[i] - result[i - 1]) / result[i - 1];
+    if (diff > thresholdRate) isArtefact[i] = true;
+  }
+
+  // Step 2: Apply interpolation if selected
+  if (method === 'interpolate') {
+    for (let i = 1; i < result.length - 1; i++) {
+      if (!isArtefact[i]) continue;
+      if (isArtefact[i - 1] || isArtefact[i + 1]) {
+        isArtefact[i] = 'delete';
+      } else {
+        result[i]     = (result[i - 1] + result[i + 1]) / 2;
+        isArtefact[i] = false;
+      }
+    }
+  }
+
+  // Step 3: Remove beats marked for deletion and record their positions
   const deletedIndices = new Set();
-  const hr = rows.map(r => parseFloat(r.hr_bpm)).filter(v => !isNaN(v));
+  const cleaned = [];
+  result.forEach((val, i) => {
+    if (isArtefact[i] === true || isArtefact[i] === 'delete') {
+      deletedIndices.add(cleaned.length);
+    } else {
+      cleaned.push(val);
+    }
+  });
+
+  return { cleaned, deletedIndices };
+}
+
+function calcMetrics(rows, method = 'interpolate', threshold = 20) {
+  const rawRR = rows.map(r => parseFloat(r.rr_ms));
+  const hr    = rows.map(r => parseFloat(r.hr_bpm)).filter(v => !isNaN(v));
+
+  // Apply artefact handling to get cleaned RR array and deletion positions
+  const { cleaned: rr, deletedIndices } = handleArtefacts(rawRR, method, threshold);
 
   const meanRR = rr.reduce((a, b) => a + b, 0) / rr.length;
   const meanHR = hr.length ? hr.reduce((a, b) => a + b, 0) / hr.length : 60000 / meanRR;
@@ -310,6 +359,7 @@ function onSettingsChange() {
 
   // Recalculate and redraw metrics and table only (charts are not redrawn for performance)
   const sessionMetrics = calcMetrics(parsedAllValid, method, threshold);
+<<<<<<< HEAD
     let warnings = [];
   const phaseMetrics   = parsedPhases.map(p => {
   
@@ -318,6 +368,12 @@ function onSettingsChange() {
       warnings.push(`${p.label}(< 2 beats)`);
       return{label: p.label, m: null};
     }
+=======
+  const phaseMetrics   = parsedPhases.map(p => ({
+    label: p.label,
+    m: calcMetrics(getValidRows(p.rows), method, threshold)
+  }));
+>>>>>>> 253428749fdbb80be97faaddec55bcb2685a38bf
 
     if(validRows.length < 10) warnings.push(`${p.label}(< 10 beats)`);
     return{label: p.label,m:calcMetrics(validRows,method,threshold)};
@@ -521,7 +577,7 @@ function renderCharts(allValid, phases) {
   });
 }
 
-// Renders the summary metrics table with one column per phase plus a full session column
+// Renders the summary metrics table with one column per phase, change scores, and full session
 function renderTable(session, phaseMetrics) {
   const metrics = [
     { label: 'Beat count', key: 'count',    unit: 'beats' },
@@ -534,26 +590,83 @@ function renderTable(session, phaseMetrics) {
     { label: 'Max RR',     key: 'maxRR',    unit: 'ms'    },
     { label: 'Duration',   key: 'duration', unit: 's'     },
   ];
-  const table      = document.getElementById('summaryTable');
-  const phaseCols  = phaseMetrics.map((p, i) => {
+
+  const table     = document.getElementById('summaryTable');
+  const phaseCols = phaseMetrics.map((p, i) => {
     const c = PHASE_COLORS[i % PHASE_COLORS.length];
     return `<th style="color:${c.text}">${p.label}</th>`;
   }).join('');
+
+  // Show change scores only when there are exactly 2 phases
+  // Change = Phase 2 minus Phase 1 (absolute and percentage)
+  const showChange = phaseMetrics.length === 2 &&
+                     phaseMetrics[0].m &&
+                     phaseMetrics[1].m;
+
+  const changeHeaders = showChange
+    ? `<th style="color:#444441;">Change (abs)</th>
+       <th style="color:#444441;">Change (%)</th>`
+    : '';
+
   const sessionCol = phaseMetrics.length > 0 ? '<th>Full session</th>' : '';
 
   table.innerHTML = `
-    <thead><tr><th>Metric</th><th>Unit</th>${phaseCols}${sessionCol}</tr></thead>
+    <thead><tr>
+      <th>Metric</th><th>Unit</th>
+      ${phaseCols}
+      ${changeHeaders}
+      ${sessionCol}
+    </tr></thead>
     <tbody>
       ${metrics.map(m => {
+<<<<<<< HEAD
         const phaseCells  = phaseMetrics.map((p, i) => {
           const c = PHASE_COLORS[i % PHASE_COLORS.length];
           const fallback = m.key === 'count' ? 'Insufficant data': '-'
           return `<td style="color:${c.text};font-weight:500">${p.m ? p.m[m.key] : fallback}</td>`;
+=======
+        const phaseCells = phaseMetrics.map((p, i) => {
+          const c   = PHASE_COLORS[i % PHASE_COLORS.length];
+          const val = p.m ? p.m[m.key] : '—';
+          return `<td style="color:${c.text};font-weight:500">${val}</td>`;
+>>>>>>> 253428749fdbb80be97faaddec55bcb2685a38bf
         }).join('');
-        const sessionCell = phaseMetrics.length > 0 ? `<td>${session ? session[m.key] : '—'}</td>` : '';
-        return `<tr><td class="metric-name">${m.label}</td><td class="unit-cell">${m.unit}</td>${phaseCells}${sessionCell}</tr>`;
+
+        // Calculate absolute and percentage change between Phase 1 and Phase 2
+        let changeCells = '';
+        if (showChange) {
+          const v1  = parseFloat(phaseMetrics[0].m[m.key]);
+          const v2  = parseFloat(phaseMetrics[1].m[m.key]);
+          const abs = v2 - v1;
+          const pct = v1 !== 0 ? (abs / v1) * 100 : 0;
+
+          // Colour: red for increase, blue for decrease, gray for no change
+          const absColor = abs > 0 ? '#993C1D' : abs < 0 ? '#185FA5' : '#888780';
+          const sign     = abs > 0 ? '+' : '';
+
+          changeCells = `
+            <td style="color:${absColor};font-weight:500">
+              ${sign}${abs.toFixed(2)}
+            </td>
+            <td style="color:${absColor};font-weight:500">
+              ${sign}${pct.toFixed(1)}%
+            </td>`;
+        }
+
+        const sessionCell = phaseMetrics.length > 0
+          ? `<td>${session ? session[m.key] : '—'}</td>`
+          : '';
+
+        return `<tr>
+          <td class="metric-name">${m.label}</td>
+          <td class="unit-cell">${m.unit}</td>
+          ${phaseCells}
+          ${changeCells}
+          ${sessionCell}
+        </tr>`;
       }).join('')}
     </tbody>`;
+}
 }
 
 // ============================================================
@@ -588,12 +701,34 @@ function downloadCSV() {
   const methodsStmt   = generateMethodsStatement(summaryData.method, summaryData.threshold);
   let csv = `# ${methodsStmt}\n`;
   const phaseHeaders  = summaryData.phases.map(p => p.label).join(',');
+
+  // Include change score headers if exactly 2 phases
+  const showChange    = summaryData.phases.length === 2 &&
+                        summaryData.phases[0].m &&
+                        summaryData.phases[1].m;
+  const changeHeaders = showChange ? ',Change (abs),Change (%)' : '';
   const sessionHeader = summaryData.phases.length > 0 ? ',Full session' : '';
-  csv += `Metric,Unit,${phaseHeaders}${sessionHeader}\n`;
+
+  csv += `Metric,Unit,${phaseHeaders}${changeHeaders}${sessionHeader}\n`;
+
   metrics.forEach(m => {
-    const phaseCells  = summaryData.phases.map(p => p.m ? p.m[m.key] : '').join(',');
-    const sessionCell = summaryData.phases.length > 0 ? ',' + (summaryData.session ? summaryData.session[m.key] : '') : '';
-    csv += `${m.label},${m.unit},${phaseCells}${sessionCell}\n`;
+    const phaseCells = summaryData.phases.map(p => p.m ? p.m[m.key] : '').join(',');
+
+    // Calculate change scores for CSV
+    let changeCells = '';
+    if (showChange) {
+      const v1  = parseFloat(summaryData.phases[0].m[m.key]);
+      const v2  = parseFloat(summaryData.phases[1].m[m.key]);
+      const abs = v2 - v1;
+      const pct = v1 !== 0 ? (abs / v1) * 100 : 0;
+      const sign = abs > 0 ? '+' : '';
+      changeCells = `,${sign}${abs.toFixed(2)},${sign}${pct.toFixed(1)}%`;
+    }
+
+    const sessionCell = summaryData.phases.length > 0
+      ? ',' + (summaryData.session ? summaryData.session[m.key] : '')
+      : '';
+    csv += `${m.label},${m.unit},${phaseCells}${changeCells}${sessionCell}\n`;
   });
   const blob = new Blob([csv], { type: 'text/csv' });
   const link = document.createElement('a');
@@ -657,9 +792,14 @@ function renderSessionMeta(fileName,sessionMetrics){
     `;
 }
 
-function generateMethodsStatement(method,threshold){
-    if(method === 'none') return "no artefact correction applied.";
-    return `Artefacts handled using ${method} method at ${threshold}% threshold.`;
+function generateMethodsStatement(method, threshold) {
+  if (method === 'interpolate') {
+    return `Artefact handling: RR intervals deviating more than ${threshold}% from the preceding interval were replaced using linear interpolation between neighbouring beats.`;
+  }
+  if (method === 'delete') {
+    return `Artefact handling: RR intervals deviating more than ${threshold}% from the preceding interval were removed from the series.`;
+  }
+  return 'Artefact handling: No successive difference filtering was applied. Only physiological range filtering (300–2000ms) was used.';
 }
 
 //clears everthing and goes back to the upload screen 

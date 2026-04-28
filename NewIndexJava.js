@@ -17,6 +17,7 @@ let parsedPhases   = null; // Stores parsed phase data so settings changes can t
 let parsedAllValid = null; // Stores all valid rows across all phases
 let rrChartInst = null;
 let hrChartInst = null;
+let poincareChartInst = null; // Chart.js instance for the Poincaré plot
 let summaryData = [];
 let phaseLabels = {};
 
@@ -223,21 +224,11 @@ function renderResults(fileName,allRows,allValid, phases) {
   const threshold = getThreshold();
 
   const sessionMetrics = calcMetrics(allValid, method, threshold);
-  let warnings = [];
   const phaseMetrics   = phases.map(p => {
   
     const validRows = getValidRows(p.rows);
-    if(validRows.length < 2){
-      warnings.push(`${p.label}(< 2 beats)`);
-      return{label: p.label,m:null};
-    }
-
-    if(validRows.length < 10) warnings.push(`${p.label}(< 10 beats)`);
     return{label: p.label,m:calcMetrics(validRows,method,threshold)};
   });
-
-  if(warnings.length > 0) showError("Warning, insufficant data in: " + warnings.join(", "))
-    else hideError();
 
   renderSessionMeta(fileName,sessionMetrics)
 
@@ -254,6 +245,7 @@ function renderResults(fileName,allRows,allValid, phases) {
   renderMetricCards(sessionMetrics, phaseMetrics);
   renderQualitySummary(phaseQuality);
   renderCharts(allValid, phases);
+  renderPoincare(phases);
   renderTable(sessionMetrics, phaseMetrics);
 
   summaryData = { session: sessionMetrics, phases: phaseMetrics, method, threshold, quality: phaseQuality, fileName, allRows, allValid, phasesRaw: phases };
@@ -359,33 +351,15 @@ function onSettingsChange() {
 
   // Recalculate and redraw metrics and table only (charts are not redrawn for performance)
   const sessionMetrics = calcMetrics(parsedAllValid, method, threshold);
-<<<<<<< HEAD
-    let warnings = [];
-  const phaseMetrics   = parsedPhases.map(p => {
-  
-    const validRows = getValidRows(p.rows);
-    if(validRows.length < 2){
-      warnings.push(`${p.label}(< 2 beats)`);
-      return{label: p.label, m: null};
-    }
-=======
   const phaseMetrics   = parsedPhases.map(p => ({
     label: p.label,
     m: calcMetrics(getValidRows(p.rows), method, threshold)
   }));
->>>>>>> 253428749fdbb80be97faaddec55bcb2685a38bf
 
-    if(validRows.length < 10) warnings.push(`${p.label}(< 10 beats)`);
-    return{label: p.label,m:calcMetrics(validRows,method,threshold)};
-  });
+  renderMetricCards(sessionMetrics, phaseMetrics);
+  renderTable(sessionMetrics, phaseMetrics);
 
-  if(warnings.length > 0) showError("Warning, insufficant data in: " + warnings.join(", "))
-    else hideError();
   summaryData = { session: sessionMetrics, phases: phaseMetrics, method, threshold };
-  if (summaryData.fileName) renderSessionMeta(summaryData.fileName,sessionMetrics);
-
-  renderMetricCards(sessionMetrics,phaseMetrics);
-  renderTable(sessionMetrics,phaseMetrics);
 }
 
 // Returns the currently selected artefact method from the radio buttons
@@ -577,6 +551,64 @@ function renderCharts(allValid, phases) {
   });
 }
 
+// Renders the Poincaré plot — a scatter chart of RR[n] vs RR[n+1]
+// Each point represents a pair of consecutive RR intervals
+// Colour-coded by phase — wide scatter = high HRV, tight cluster = low HRV
+function renderPoincare(phases) {
+  if (poincareChartInst) poincareChartInst.destroy();
+
+  // Build one dataset per phase, each with its own colour
+  const datasets = phases.map((p, i) => {
+    const c      = PHASE_COLORS[i % PHASE_COLORS.length];
+    const rr     = getValidRows(p.rows).map(r => parseFloat(r.rr_ms));
+
+    // Create (RR[n], RR[n+1]) pairs
+    const points = [];
+    for (let j = 0; j < rr.length - 1; j++) {
+      points.push({ x: rr[j], y: rr[j + 1] });
+    }
+
+    return {
+      label:           p.label,
+      data:            points,
+      backgroundColor: c.border + '99', // Semi-transparent fill
+      borderColor:     c.border,
+      borderWidth:     0.5,
+      pointRadius:     3,
+    };
+  });
+
+  poincareChartInst = new Chart(document.getElementById('poincareChart'), {
+    type: 'scatter',
+    data: { datasets },
+    options: {
+      responsive:          true,
+      maintainAspectRatio: false,
+      animation:           false,
+      plugins: {
+        legend: { display: true, position: 'top' },
+        tooltip: {
+          callbacks: {
+            label: ctx => `RR[n]: ${ctx.parsed.x.toFixed(0)}ms, RR[n+1]: ${ctx.parsed.y.toFixed(0)}ms`
+          }
+        }
+      },
+      scales: {
+        x: {
+          title: { display: true, text: 'RR[n] (ms)', font: { size: 11 }, color: '#888780' },
+          ticks: { font: { size: 11 }, color: '#888780' },
+          grid:  { color: '#F1EFE8' }
+        },
+        y: {
+          title: { display: true, text: 'RR[n+1] (ms)', font: { size: 11 }, color: '#888780' },
+          ticks: { font: { size: 11 }, color: '#888780' },
+          grid:  { color: '#F1EFE8' }
+        }
+      }
+    }
+  });
+}
+
 // Renders the summary metrics table with one column per phase, change scores, and full session
 function renderTable(session, phaseMetrics) {
   const metrics = [
@@ -619,17 +651,10 @@ function renderTable(session, phaseMetrics) {
     </tr></thead>
     <tbody>
       ${metrics.map(m => {
-<<<<<<< HEAD
-        const phaseCells  = phaseMetrics.map((p, i) => {
-          const c = PHASE_COLORS[i % PHASE_COLORS.length];
-          const fallback = m.key === 'count' ? 'Insufficant data': '-'
-          return `<td style="color:${c.text};font-weight:500">${p.m ? p.m[m.key] : fallback}</td>`;
-=======
         const phaseCells = phaseMetrics.map((p, i) => {
           const c   = PHASE_COLORS[i % PHASE_COLORS.length];
           const val = p.m ? p.m[m.key] : '—';
           return `<td style="color:${c.text};font-weight:500">${val}</td>`;
->>>>>>> 253428749fdbb80be97faaddec55bcb2685a38bf
         }).join('');
 
         // Calculate absolute and percentage change between Phase 1 and Phase 2
@@ -667,7 +692,6 @@ function renderTable(session, phaseMetrics) {
       }).join('')}
     </tbody>`;
 }
-
 
 // ============================================================
 // Part 6 — Export
@@ -812,4 +836,5 @@ function resetApp() {
   hideError();
   if (rrChartInst) { rrChartInst.destroy(); rrChartInst = null; }
   if (hrChartInst) { hrChartInst.destroy(); hrChartInst = null; }
+  if (poincareChartInst) { poincareChartInst.destroy(); poincareChartInst = null; }
 }

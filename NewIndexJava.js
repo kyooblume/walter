@@ -131,11 +131,14 @@ function handleArtefacts(rrArray, method, threshold) {
   const thresholdRate = threshold / 100;
 
   if (method === 'none' || rrArray.length < 2) {
-    return { cleaned: [...rrArray], deletedIndices: new Set() };
+    return { cleaned: [...rrArray], deletedIndices: new Set(), interpolatedCount: 0, isInterpolated: new Array(rrArray.length).fill(false),isDeleted: new Array(rrArray.length).fill(false), result: [...rrArray] };
   }
 
   const result     = [...rrArray];
   const isArtefact = new Array(result.length).fill(false);
+  const isInterpolated = new Array(result.length).fill(false);
+  const isDeleted = new Array(result.length).fill(false);
+  let interpolatedCount = 0;
 
   // Step 1: Detect artefacts — flag beats deviating more than threshold% from previous
   for (let i = 1; i < result.length; i++) {
@@ -152,6 +155,8 @@ function handleArtefacts(rrArray, method, threshold) {
       } else {
         result[i]     = (result[i - 1] + result[i + 1]) / 2;
         isArtefact[i] = false;
+        isInterpolated[i] = true;
+        interpolatedCount++;
       }
     }
   }
@@ -162,12 +167,13 @@ function handleArtefacts(rrArray, method, threshold) {
   result.forEach((val, i) => {
     if (isArtefact[i] === true || isArtefact[i] === 'delete') {
       deletedIndices.add(cleaned.length);
+      isDeleted[i] = true;
     } else {
       cleaned.push(val);
     }
   });
 
-  return { cleaned, deletedIndices };
+  return { cleaned, deletedIndices,interpolatedCount, isInterpolated, isDeleted, result };
 }
 
 function calcMetrics(rows, method = 'interpolate', threshold = 20) {
@@ -175,7 +181,7 @@ function calcMetrics(rows, method = 'interpolate', threshold = 20) {
   const hr    = rows.map(r => parseFloat(r.hr_bpm)).filter(v => !isNaN(v));
 
   // Apply artefact handling to get cleaned RR array and deletion positions
-  const { cleaned: rr, deletedIndices } = handleArtefacts(rawRR, method, threshold);
+  const { cleaned: rr, deletedIndices, interpolatedCount } = handleArtefacts(rawRR, method, threshold);
 
   const meanRR = rr.reduce((a, b) => a + b, 0) / rr.length;
   const meanHR = hr.length ? hr.reduce((a, b) => a + b, 0) / hr.length : 60000 / meanRR;
@@ -193,8 +199,9 @@ function calcMetrics(rows, method = 'interpolate', threshold = 20) {
   const sdnn  = Math.sqrt(rr.map(v => (v - meanRR) ** 2).reduce((a, b) => a + b, 0) / rr.length);
   const pnn50 = diffs.length ? (diffs.filter(d => Math.abs(d) > 50).length / diffs.length) * 100 : 0;
 
-  const t0       = parseFloat(rows[0].timestamp_ms);
-  const t1       = parseFloat(rows[rows.length - 1].timestamp_ms);
+  const startRow = summaryData.allRows ? summaryData.allRows.find (r => ( r.event || '').trim() === 'SESSION_START'):null;
+  const t0 = startRow ? parseFloat(startRow.timestamp_ms) : parseFloat(rows[0].timestamp_ms);
+  const t1 = parseFloat(rows[rows.length - 1].timestamp_ms);
   const duration = (t1 - t0) / 1000;
 
   return {
@@ -207,6 +214,8 @@ function calcMetrics(rows, method = 'interpolate', threshold = 20) {
     minRR:    Math.min(...rr).toFixed(2),
     maxRR:    Math.max(...rr).toFixed(2),
     duration: duration.toFixed(1),
+    deleted: deletedIndices.size,
+    interpolated: interpolatedCount
   };
 }
 
@@ -219,6 +228,7 @@ function renderResults(fileName,allRows,allValid, phases) {
 
   parsedAllValid = allValid;
   parsedPhases = phases;
+  summaryData.allRows = allRows
 
   const method    = getArtefactMethod();
   const threshold = getThreshold();
@@ -232,11 +242,12 @@ function renderResults(fileName,allRows,allValid, phases) {
 
   renderSessionMeta(fileName,sessionMetrics)
 
-  const phaseQuality = phases.map(p=>{
+  const phaseQuality = phases.map((p,i) => {
     const validRows = getValidRows(p.rows);
+    const metrics = phaseMetrics[i].m;
     return{
         label: p.label,
-        q: calculateDataQuality(p.rows,validRows)
+        q: calculateDataQuality(p.rows,validRows, metrics)
     };
   });
 
@@ -479,17 +490,43 @@ function renderCharts(allValid, phases) {
     Chart.register(window.ChartAnnotation);
   }
 
-  const t0 = parseFloat(allValid[0].timestamp_ms);
+  const startRow = summaryData.allRows.find(r => (r.event || "").trim() === 'SESSION_START');
+  const t0 = startRow ? parseFloat(startRow.timestamp_ms) : parseFloat(allValid[0].timestamp_ms);
 
-  // Build x/y data points — x axis is elapsed seconds from the first data row
-  const rrData = allValid.map(r => ({
-    x: ((parseFloat(r.timestamp_ms) - t0) / 1000).toFixed(2),
-    y: parseFloat(r.rr_ms)
-  }));
-  const hrData = allValid.map(r => ({
-    x: ((parseFloat(r.timestamp_ms) - t0) / 1000).toFixed(2),
-    y: parseFloat(r.hr_bpm)
-  }));
+
+  const method = getArtefactMethod();
+  const threshold = getThreshold();
+  const rawRR = allValid.map(r => parseFloat(r.rr_ms));
+
+  const { isInterpolated, isDeleted, result: cleanedRR } = handleArtefacts(rawRR, method, threshold);
+
+  const rrData = [];
+  const hrData = [];
+  const pointColors = [];
+  const dotSizes = [];
+
+  allValid.forEach((r,i) => {
+    if (isDeleted[i]) return;
+
+    rrData.push({
+      x: ((parseFloat(r.timestamp_ms) - t0) / 1000).toFixed(2),
+    y: cleanedRR[i]
+    })
+
+    hrData.push({
+      x: ((parseFloat(r.timestamp_ms) - t0) / 1000).toFixed(2),
+      y: parseFloat(r.hr_bpm)
+    });
+
+    if(isInterpolated[i]) {
+      pointColors.push('#E02424');
+      dotSizes.push(4);
+    } else{
+      pointColors.push('#185FA5');
+      dotSizes.push(0);
+    }
+
+  });
 
   // Build annotation objects for phase boundary lines and labels
   const annotations = {};
@@ -539,11 +576,25 @@ function renderCharts(allValid, phases) {
     }
   });
 
-  rrChartInst = new Chart(document.getElementById('rrChart'), {
-    type: 'line',
-    data: { datasets: [{ data: rrData, borderColor: '#185FA5', backgroundColor: 'transparent' }] },
-    options: makeOptions('RR (ms)', allAnnotations)
-  });
+
+  rrChartInst = new Chart(document.getElementById('rrChart'),{
+
+    type:'line',
+    data: {datasets: [{
+    data: rrData,
+    borderColor: '#185FA5',
+    backgroundColor: 'transparent',
+    pointBackgroundColor: pointColors,
+    pointBorderColor: pointColors,
+    pointRadius: dotSizes,
+    pointHoverRadius: 6
+
+    }]},
+
+    options: makeOptions('RR (ms)',allAnnotations)
+
+  })
+
   hrChartInst = new Chart(document.getElementById('hrChart'), {
     type: 'line',
     data: { datasets: [{ data: hrData, borderColor: '#993C1D', backgroundColor: 'transparent' }] },
@@ -779,12 +830,17 @@ function updatePhaseLabel(phaseNumber,newLabel){
     );
 }
 
-function calculateDataQuality(originalRows,retainedRows){
+function calculateDataQuality(originalRows,retainedRows,metrics){
     const recorded = originalRows.length;
-    const retained = retainedRows.length;
-    const handled = recorded - retained;
-    const percentRetained = recorded > 0 ? (retained / recorded) * 100:0;
+    let retained = retainedRows.length;
+    let handled = recorded - retained;
+    
+    if(metrics){
+      handled += metrics.deleted + metrics.interpolated;
+      retained -= metrics.deleted
+    }
 
+    const percentRetained = recorded > 0 ? (retained / recorded) * 100:0;
     let rating = "good";
     if(percentRetained<85) rating = "Poor";
     else if(percentRetained<95) rating = "Fair";

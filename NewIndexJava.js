@@ -505,27 +505,44 @@ function renderCharts(allValid, phases) {
   const pointColors = [];
   const dotSizes = [];
 
-  allValid.forEach((r,i) => {
+  // Build a lookup map: timestamp → phase label
+  // Used to show which phase each beat belongs to in the tooltip
+  const timestampToPhase = {};
+  phases.forEach(p => {
+    p.rows.forEach(r => {
+      timestampToPhase[r.timestamp_ms] = p.label;
+    });
+  });
+
+  allValid.forEach((r, i) => {
     if (isDeleted[i]) return;
 
-    rrData.push({
-      x: ((parseFloat(r.timestamp_ms) - t0) / 1000).toFixed(2),
-    y: cleanedRR[i]
-    })
+    const elapsedSec = ((parseFloat(r.timestamp_ms) - t0) / 1000).toFixed(2);
+    const phaseLabel = timestampToPhase[r.timestamp_ms] || 'Unknown';
+    const status     = isInterpolated[i] ? 'Interpolated' : 'Normal';
 
-    hrData.push({
-      x: ((parseFloat(r.timestamp_ms) - t0) / 1000).toFixed(2),
-      y: parseFloat(r.hr_bpm)
+    // Store extra info in each point for the tooltip to display
+    rrData.push({
+      x:      elapsedSec,
+      y:      cleanedRR[i],
+      phase:  phaseLabel,
+      status: status,
     });
 
-    if(isInterpolated[i]) {
+    hrData.push({
+      x: elapsedSec,
+      y: parseFloat(r.hr_bpm),
+      phase:  phaseLabel,
+      status: status,
+    });
+
+    if (isInterpolated[i]) {
       pointColors.push('#E02424');
       dotSizes.push(4);
-    } else{
+    } else {
       pointColors.push('#185FA5');
       dotSizes.push(0);
     }
-
   });
 
   // Build annotation objects for phase boundary lines and labels
@@ -567,7 +584,22 @@ function renderCharts(allValid, phases) {
     elements: { point: { radius: 0 }, line: { borderWidth: 1.5, tension: 0.2 } },
     plugins: {
       legend: { display: false },
-      tooltip: { callbacks: { label: ctx => `${ctx.parsed.y.toFixed(1)} ${ylabel}` } },
+      tooltip: {
+        callbacks: {
+          // Title shows the metric value
+          title: ctx => `${ylabel}: ${ctx[0].parsed.y.toFixed(1)} ms`,
+          // Body shows elapsed time, phase and interpolation status
+          label: ctx => {
+            const pt = ctx.raw;
+            if (!pt) return '';
+            return [
+              `Elapsed time : ${parseFloat(pt.x).toFixed(1)} s`,
+              `Phase        : ${pt.phase  || '—'}`,
+              `Status       : ${pt.status || 'Normal'}`,
+            ];
+          }
+        }
+      },
       annotation: { annotations: annots } // Phase boundary lines and background boxes
     },
     scales: {

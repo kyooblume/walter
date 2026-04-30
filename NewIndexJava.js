@@ -805,8 +805,13 @@ function downloadCSV() {
     { label: 'Max RR',     key: 'maxRR',    unit: 'ms'    },
     { label: 'Duration',   key: 'duration', unit: 's'     },
   ];
-  const methodsStmt   = generateMethodsStatement(summaryData.method, summaryData.threshold);
+  const methodsStmt = generateMethodsStatement(summaryData.method, summaryData.threshold);
   let csv = `# ${methodsStmt}\n`;
+
+  // Add session notes as a comment line if the student has entered any
+  const notesEl = document.getElementById('sessionNotes');
+  const notes   = notesEl ? notesEl.value.trim() : '';
+  if (notes) csv += `# Notes: ${notes}\n`;
   const phaseHeaders  = summaryData.phases.map(p => p.label).join(',');
 
   // Include change score headers if exactly 2 phases
@@ -920,6 +925,9 @@ function resetApp() {
   results.style.display    = 'none';
   fileInput.value          = '';
   parsedAllValid           = null;
+  // Clear session notes when resetting
+  const notesEl = document.getElementById('sessionNotes');
+  if (notesEl) notesEl.value = '';
   parsedPhases             = null;
   hideError();
   if (rrChartInst) { rrChartInst.destroy(); rrChartInst = null; }

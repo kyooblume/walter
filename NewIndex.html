@@ -82,6 +82,18 @@
 
     <div class="card">
       <div class="card-header">
+        <span class="card-title">Session notes</span>
+      </div>
+      <textarea id="sessionNotes"
+        placeholder="Add any notes about this session here (e.g. participant was nervous during Phase 2). Notes will be saved as a comment line in the exported CSV."
+        style="width:100%; font-size:13px; padding:10px; border:1px solid #E0DED8;
+               border-radius:6px; resize:vertical; background:#F8F8F7;
+               color:#1a1a18; line-height:1.5; min-height:80px; font-family:inherit;">
+      </textarea>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
         <span class="card-title">Summary table</span>
         <button class="btn btn-sm" onclick="downloadCSV()">Download CSV</button>
       </div>

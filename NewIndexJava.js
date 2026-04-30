@@ -89,7 +89,7 @@ function processFile(file) {
 
 //goes through the rows and collects timestamps where a phase marker is
 function buildPhases(allRows){
-        const phaseMap = {};
+        const phaseData = {};
 
         allRows.forEach(r => {
             const event = (r.event || '').trim();
@@ -100,19 +100,19 @@ function buildPhases(allRows){
             if(!(rr >0)) return;
             if(isNaN(phase)) return;
 
-            if (!phaseMap[phase]){
-                phaseMap[phase] = [];
+            if (!phaseData[phase]){
+                phaseData[phase] = [];
             }
-            phaseMap[phase].push(r);
+            phaseData[phase].push(r);
         });
-        const phaseNumbers = Object.keys(phaseMap)
+        const CurrentphaseNumbers = Object.keys(phaseData)
         .map(Number)
         .sort((a,b) => a-b);
 
-        return phaseNumbers.map(n => ({
+        return CurrentphaseNumbers.map(n => ({
             label: phaseLabels[n] || `Phase ${n}`,
-            phaseNumber:n,
-            rows:phaseMap[n]
+            CurrentphaseNumbers:n,
+            rows:phaseData[n]
         }))
 }
 
@@ -403,9 +403,9 @@ function renderQualitySummary(phaseQuality){
             ${phaseQuality.map(p => `
                 <tr>
                 <td>${p.label}</td>
-                <td>${p.q.recorded}</td>
-                <td>${p.q.retained}</td>
-                <td>${p.q.handled}</td>
+                <td>${p.q.heartBeatDataTotal}</td>
+                <td>${p.q.HeartBeatDataretained}</td>
+                <td>${p.q.messedUpBeats}</td>
                 <td>${p.q.rating} (${p.q.percentRetained}%)</td>
                 </tr>
             `).join('')}
@@ -867,22 +867,22 @@ function updatePhaseLabel(phaseNumber,newLabel){
     );
 }
 
-function calculateDataQuality(originalRows,retainedRows,metrics){
-    const recorded = originalRows.length;
-    let retained = retainedRows.length;
-    let handled = recorded - retained;
+function calculateDataQuality(heartBeatsRecorded,FilterdRows,AllMetrics){
+    const heartBeatDataTotal = heartBeatsRecorded.length;
+    let HeartBeatDataretained = FilterdRows.length;
+    let messedUpBeats = heartBeatDataTotal - HeartBeatDataretained;
     
-    if(metrics){
-      handled += metrics.deleted + metrics.interpolated;
-      retained -= metrics.deleted
+    if(AllMetrics){ //if all metrics exist 
+      messedUpBeats = messedUpBeats + AllMetrics.deleted + AllMetrics.interpolated;
+      HeartBeatDataretained = HeartBeatDataretained - AllMetrics.deleted
     }
 
-    const percentRetained = recorded > 0 ? (retained / recorded) * 100:0;
+    const percentRetained = heartBeatDataTotal > 0 ? (HeartBeatDataretained / heartBeatDataTotal) * 100:0;
     let rating = "good";
     if(percentRetained<85) rating = "Poor";
     else if(percentRetained<95) rating = "Fair";
 
-    return { recorded, retained, handled, rating, percentRetained: percentRetained.toFixed(1)};
+    return { heartBeatDataTotal, HeartBeatDataretained, messedUpBeats, rating, percentRetained: percentRetained.toFixed(1)};
 };
 
 function parseFilenameMeta(filename){

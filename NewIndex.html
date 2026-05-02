@@ -32,6 +32,41 @@
     <p style="margin-top:12px; font-size:12px; color:var(--gray-text);">Your data never leaves your device — all analysis runs in the browser.</p>
   </div>
 
+  <!-- Batch upload section — separate from single file analysis -->
+  <div class="card" id="batchCard">
+    <div class="card-header">
+      <span class="card-title">Batch upload — combine multiple participants</span>
+    </div>
+    <p style="font-size:13px; color:#5F5E5A; margin-bottom:16px;">
+      Upload multiple Harvey CSV files at once to produce a combined summary table — one row per participant, ready for SPSS or JASP.
+    </p>
+    <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
+      <label class="btn btn-primary" style="cursor:pointer;">
+        Choose files
+        <input type="file" id="batchFileInput" accept=".csv" multiple style="display:none;">
+      </label>
+      <span id="batchFileCount" style="font-size:13px; color:#5F5E5A;"></span>
+    </div>
+    <div id="batchProgress" style="margin-top:12px; font-size:13px; color:#5F5E5A; display:none;"></div>
+    <div id="batchError" style="margin-top:12px; font-size:13px; color:#A32D2D; display:none;"></div>
+  </div>
+
+  <!-- Batch results — shown after processing -->
+  <div id="batchResults" style="display:none;">
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">Batch summary — all participants</span>
+        <button class="btn btn-sm" onclick="downloadBatchCSV()">Download CSV (SPSS-ready)</button>
+      </div>
+      <div style="overflow-x:auto">
+        <table id="batchTable"></table>
+      </div>
+    </div>
+    <div style="text-align:center; margin-bottom:24px;">
+      <button class="btn" onclick="resetBatch()">&#8617; Clear batch</button>
+    </div>
+  </div>
+
 
   <div class="results" id="results">
 
@@ -79,18 +114,6 @@
         </div>
     </div>
 
-
-    <div class="card">
-      <div class="card-header">
-        <span class="card-title">Session notes</span>
-      </div>
-      <textarea id="sessionNotes"
-        placeholder="Add any notes about this session here (e.g. participant was nervous during Phase 2). Notes will be saved as a comment line in the exported CSV."
-        style="width:100%; font-size:13px; padding:10px; border:1px solid #E0DED8;
-               border-radius:6px; resize:vertical; background:#F8F8F7;
-               color:#1a1a18; line-height:1.5; min-height:80px; font-family:inherit;">
-      </textarea>
-    </div>
 
     <div class="card">
       <div class="card-header">

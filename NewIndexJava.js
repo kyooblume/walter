@@ -934,3 +934,172 @@ function resetApp() {
   if (hrChartInst) { hrChartInst.destroy(); hrChartInst = null; }
   if (poincareChartInst) { poincareChartInst.destroy(); poincareChartInst = null; }
 }
+
+// ============================================================
+// Batch Upload — combine multiple participants into one CSV
+// ============================================================
+
+// Store batch results globally for CSV export
+let batchResults = [];
+
+// Listen for file selection on the batch input
+document.addEventListener('DOMContentLoaded', () => {
+  const batchInput = document.getElementById('batchFileInput');
+  if (batchInput) {
+    batchInput.addEventListener('change', e => {
+      if (e.target.files.length > 0) processBatchFiles(e.target.files);
+    });
+  }
+});
+
+// Process all uploaded files one by one
+async function processBatchFiles(files) {
+  batchResults = [];
+  const progressEl = document.getElementById('batchProgress');
+  const errorEl    = document.getElementById('batchError');
+  const countEl    = document.getElementById('batchFileCount');
+
+  progressEl.style.display = 'block';
+  errorEl.style.display    = 'none';
+  countEl.textContent      = `${files.length} file${files.length > 1 ? 's' : ''} selected`;
+
+  const method    = getArtefactMethod();
+  const threshold = getThreshold();
+  const errors    = [];
+
+  for (let i = 0; i < files.length; i++) {
+    const file = files[i];
+    progressEl.textContent = `Processing ${i + 1} of ${files.length}: ${file.name}...`;
+
+    try {
+      const result = await parseBatchFile(file, method, threshold);
+      if (result) {
+        batchResults.push(result);
+      } else {
+        errors.push(`${file.name}: could not process`);
+      }
+    } catch (err) {
+      errors.push(`${file.name}: ${err.message}`);
+    }
+  }
+
+  progressEl.style.display = 'none';
+
+  if (errors.length > 0) {
+    errorEl.style.display   = 'block';
+    errorEl.textContent     = `Errors: ${errors.join(' | ')}`;
+  }
+
+  if (batchResults.length > 0) {
+    renderBatchTable(batchResults);
+    document.getElementById('batchResults').style.display = 'block';
+  }
+}
+
+// Parse a single CSV file and return one row of metrics
+function parseBatchFile(file, method, threshold) {
+  return new Promise((resolve, reject) => {
+    Papa.parse(file, {
+      header: true,
+      skipEmptyLines: true,
+      complete: function(res) {
+        const allRows = res.data;
+        const cols    = res.meta.fields || [];
+
+        if (!cols.includes('rr_ms') || !cols.includes('timestamp_ms')) {
+          resolve(null);
+          return;
+        }
+
+        const validRows = getValidRows(allRows);
+        if (validRows.length < 10) { resolve(null); return; }
+
+        const phases = buildPhases(allRows);
+        const meta   = parseFilenameMeta(file.name);
+
+        // Build one row: participantID + metrics per phase
+        const row = { ParticipantID: meta.participantID };
+
+        phases.forEach(p => {
+          const phaseValid = getValidRows(p.rows);
+          const m          = calcMetrics(phaseValid, method, threshold);
+          if (!m) return;
+
+          // SPSS-safe column names: no spaces, no special chars, no leading numbers
+          const prefix = `${sanitiseColName(p.label)}_`;
+          row[prefix + 'RMSSD']    = m.rmssd;
+          row[prefix + 'SDNN']     = m.sdnn;
+          row[prefix + 'MeanHR']   = m.meanHR;
+          row[prefix + 'MeanRR']   = m.meanRR;
+          row[prefix + 'pNN50pct'] = m.pnn50;
+          row[prefix + 'MinRR']    = m.minRR;
+          row[prefix + 'MaxRR']    = m.maxRR;
+          row[prefix + 'Duration'] = m.duration;
+          row[prefix + 'Beats']    = m.count;
+        });
+
+        resolve(row);
+      },
+      error: function(err) { reject(err); }
+    });
+  });
+}
+
+// Convert a phase label to a SPSS-safe column name prefix
+// Rules: no spaces, no special chars, cannot start with a number
+function sanitiseColName(label) {
+  return label
+    .replace(/[^a-zA-Z0-9_]/g, '_') // Replace special chars with underscore
+    .replace(/^(\d)/, 'P$1');        // Prefix with P if starts with a number
+}
+
+// Render the batch summary table in the UI
+function renderBatchTable(rows) {
+  const table = document.getElementById('batchTable');
+  if (!table || rows.length === 0) return;
+
+  const headers = Object.keys(rows[0]);
+
+  table.innerHTML = `
+    <thead>
+      <tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr>
+    </thead>
+    <tbody>
+      ${rows.map(row => `
+        <tr>${headers.map(h => `<td>${row[h] ?? '—'}</td>`).join('')}</tr>
+      `).join('')}
+    </tbody>`;
+}
+
+// Download the batch results as a SPSS-ready CSV
+function downloadBatchCSV() {
+  if (batchResults.length === 0) return;
+
+  const headers = Object.keys(batchResults[0]);
+  const method    = getArtefactMethod();
+  const threshold = getThreshold();
+  const methodsStmt = generateMethodsStatement(method, threshold);
+
+  let csv = `# ${methodsStmt}\n`;
+  csv += `# Generated by WALTER — one row per participant\n`;
+  csv += headers.join(',') + '\n';
+
+  batchResults.forEach(row => {
+    csv += headers.map(h => row[h] ?? '').join(',') + '\n';
+  });
+
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const link = document.createElement('a');
+  link.download = 'walter_batch_summary.csv';
+  link.href     = URL.createObjectURL(blob);
+  link.click();
+}
+
+// Clear batch results and reset the batch section
+function resetBatch() {
+  batchResults = [];
+  document.getElementById('batchResults').style.display  = 'none';
+  document.getElementById('batchFileCount').textContent  = '';
+  document.getElementById('batchError').style.display    = 'none';
+  document.getElementById('batchFileInput').value        = '';
+}

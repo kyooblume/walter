@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>WALTER — HRV Analyser</title>
-<link rel = "stylesheet" href = "NewIndex.css">
+<link rel="stylesheet" href="NewIndex.css">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
@@ -14,122 +14,150 @@
 <header>
   <h1>WALTER</h1>
   <p>HRV Analyser — Heart Rate Variability for psychology students</p>
-
-  <button class = "btn btn-sm" onclick="toggleDarkMode()">Toggle dark mode</button>
+  <button class="btn btn-sm" onclick="toggleDarkMode()">Toggle dark mode</button>
 </header>
 
 <main>
   <div class="error-box" id="errorBox"></div>
 
-  <div class="upload-card" id="uploadCard">
-    <div class="upload-icon">&#128196;</div>
-    <h2>Upload your Harvey CSV file</h2>
-    <p>Drag and drop here, or click to select a file</p>
-    <label class="btn btn-primary">
-      Choose file
-      <input type="file" id="fileInput" accept=".csv">
-    </label>
-    <p style="margin-top:12px; font-size:12px; color:var(--gray-text);">Your data never leaves your device — all analysis runs in the browser.</p>
+  <!-- Tab buttons -->
+  <div style="display:flex; gap:0; margin-bottom:24px; border-bottom:2px solid #E0DED8;">
+    <button id="tabSingle" onclick="switchTab('single')"
+      style="padding:10px 24px; font-size:14px; font-weight:500; border:none;
+             background:none; cursor:pointer; border-bottom:2px solid #185FA5;
+             margin-bottom:-2px; color:#185FA5;">
+      Single file
+    </button>
+    <button id="tabBatch" onclick="switchTab('batch')"
+      style="padding:10px 24px; font-size:14px; font-weight:500; border:none;
+             background:none; cursor:pointer; border-bottom:2px solid transparent;
+             margin-bottom:-2px; color:#5F5E5A;">
+      Batch upload
+    </button>
   </div>
 
-  <!-- Batch upload section — separate from single file analysis -->
-  <div class="card" id="batchCard">
-    <div class="card-header">
-      <span class="card-title">Batch upload — combine multiple participants</span>
-    </div>
-    <p style="font-size:13px; color:#5F5E5A; margin-bottom:16px;">
-      Upload multiple Harvey CSV files at once to produce a combined summary table — one row per participant, ready for SPSS or JASP.
-    </p>
-    <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
-      <label class="btn btn-primary" style="cursor:pointer;">
-        Choose files
-        <input type="file" id="batchFileInput" accept=".csv" multiple style="display:none;">
+  <!-- Single file tab -->
+  <div id="panelSingle">
+    <div class="upload-card" id="uploadCard">
+      <div class="upload-icon">&#128196;</div>
+      <h2>Upload your Harvey CSV file</h2>
+      <p>Drag and drop here, or click to select a file</p>
+      <label class="btn btn-primary">
+        Choose file
+        <input type="file" id="fileInput" accept=".csv">
       </label>
-      <span id="batchFileCount" style="font-size:13px; color:#5F5E5A;"></span>
-    </div>
-    <div id="batchProgress" style="margin-top:12px; font-size:13px; color:#5F5E5A; display:none;"></div>
-    <div id="batchError" style="margin-top:12px; font-size:13px; color:#A32D2D; display:none;"></div>
-  </div>
-
-  <!-- Batch results — shown after processing -->
-  <div id="batchResults" style="display:none;">
-    <div class="card">
-      <div class="card-header">
-        <span class="card-title">Batch summary — all participants</span>
-        <button class="btn btn-sm" onclick="downloadBatchCSV()">Download CSV (SPSS-ready)</button>
-      </div>
-      <div style="overflow-x:auto">
-        <table id="batchTable"></table>
-      </div>
-    </div>
-    <div style="text-align:center; margin-bottom:24px;">
-      <button class="btn" onclick="resetBatch()">&#8617; Clear batch</button>
-    </div>
-  </div>
-
-
-  <div class="results" id="results">
-
-    <div class = "card" id = "sessionMetaCard">
-    <div class = "card-header">
-        <span class = "card-title"> session details</span>
-    </div>
-    <div id = "sessionMeta"></div>
-    </div>
-    
-    <div class="phase-legend" id="phaseLegend"></div>
-
-    <div class="metrics-grid" id="metricsGrid"></div>
-
-    <div class="card">
-      <div class="card-header">
-        <span class="card-title">Tachogram — RR intervals over time</span>
-        <button class="btn btn-sm" onclick="downloadChart('rrChart', 'walter_tachogram.png')">Download PNG</button>
-      </div>
-      <div class="chart-wrap"><canvas id="rrChart"></canvas></div>
+      <p style="margin-top:12px; font-size:12px; color:var(--gray-text);">Your data never leaves your device — all analysis runs in the browser.</p>
     </div>
 
-    <div class="card">
-      <div class="card-header">
-        <span class="card-title">Heart rate over time</span>
-        <button class="btn btn-sm" onclick="downloadChart('hrChart', 'walter_hr.png')">Download PNG</button>
-      </div>
-      <div class="chart-wrap"><canvas id="hrChart"></canvas></div>
-    </div>
-
-    <div class="card">
-      <div class="card-header">
-        <span class="card-title">Poincaré plot — RR[n] vs RR[n+1]</span>
-        <button class="btn btn-sm" onclick="downloadChart('poincareChart', 'walter_poincare.png')">Download PNG</button>
-      </div>
-      <div class="chart-wrap"><canvas id="poincareChart"></canvas></div>
-    </div>
-
-    <div class = "card" id = "qualitySummary">
-        <div class = "card-header">
-            <span class = "card-title"> Data quality summary </span>
+    <div class="results" id="results">
+      <div class="card" id="sessionMetaCard">
+        <div class="card-header">
+          <span class="card-title">Session details</span>
         </div>
-        <div style="overflow-x: auto;">
-            <table id = "qualityTable"></table>
+        <div id="sessionMeta"></div>
+      </div>
+
+      <div class="phase-legend" id="phaseLegend"></div>
+      <div class="metrics-grid" id="metricsGrid"></div>
+
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Tachogram — RR intervals over time</span>
+          <button class="btn btn-sm" onclick="downloadChart('rrChart', 'walter_tachogram.png')">Download PNG</button>
         </div>
-    </div>
-
-
-    <div class="card">
-      <div class="card-header">
-        <span class="card-title">Summary table</span>
-        <button class="btn btn-sm" onclick="downloadCSV()">Download CSV</button>
+        <div class="chart-wrap"><canvas id="rrChart"></canvas></div>
       </div>
-      <div style="overflow-x:auto">
-        <table id="summaryTable"></table>
-      </div>
-    </div>
 
-    <div style="text-align:center; margin-top:24px;">
-      <button class="btn" onclick="resetApp()">&#8617; Upload another file</button>
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Heart rate over time</span>
+          <button class="btn btn-sm" onclick="downloadChart('hrChart', 'walter_hr.png')">Download PNG</button>
+        </div>
+        <div class="chart-wrap"><canvas id="hrChart"></canvas></div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Poincaré plot — RR[n] vs RR[n+1]</span>
+          <button class="btn btn-sm" onclick="downloadChart('poincareChart', 'walter_poincare.png')">Download PNG</button>
+        </div>
+        <div class="chart-wrap"><canvas id="poincareChart"></canvas></div>
+      </div>
+
+      <div class="card" id="qualitySummary">
+        <div class="card-header">
+          <span class="card-title">Data quality summary</span>
+        </div>
+        <div style="overflow-x:auto">
+          <table id="qualityTable"></table>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Session notes</span>
+        </div>
+        <textarea id="sessionNotes"
+          placeholder="Add any notes about this session here (e.g. participant was nervous during Phase 2). Notes will be saved as a comment line in the exported CSV."
+          style="width:100%; font-size:13px; padding:10px; border:1px solid #E0DED8;
+                 border-radius:6px; resize:vertical; background:#F8F8F7;
+                 color:#1a1a18; line-height:1.5; min-height:80px; font-family:inherit;">
+        </textarea>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Summary table</span>
+          <button class="btn btn-sm" onclick="downloadCSV()">Download CSV</button>
+        </div>
+        <div style="overflow-x:auto">
+          <table id="summaryTable"></table>
+        </div>
+      </div>
+
+      <div style="text-align:center; margin-top:24px;">
+        <button class="btn" onclick="resetApp()">&#8617; Upload another file</button>
+      </div>
     </div>
   </div>
+
+  <!-- Batch upload tab -->
+  <div id="panelBatch" style="display:none;">
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">Batch upload</span>
+      </div>
+      <p style="font-size:13px; color:#5F5E5A; margin-bottom:16px;">
+        Upload multiple Harvey CSV files at once to produce a combined summary — one row per participant, ready for SPSS or JASP.
+      </p>
+      <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap; margin-bottom:12px;">
+        <label class="btn btn-primary" style="cursor:pointer;">
+          Choose files
+          <input type="file" id="batchFileInput" accept=".csv" multiple style="display:none;">
+        </label>
+        <span id="batchFileCount" style="font-size:13px; color:#5F5E5A;"></span>
+      </div>
+      <div id="batchProgress" style="font-size:13px; color:#5F5E5A; display:none;"></div>
+      <div id="batchError" style="font-size:13px; color:#A32D2D; display:none;"></div>
+    </div>
+
+    <div id="batchResults" style="display:none;">
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Batch summary — all participants</span>
+          <button class="btn btn-sm" onclick="downloadBatchCSV()">Download CSV (SPSS-ready)</button>
+        </div>
+        <div style="overflow-x:auto">
+          <table id="batchTable"></table>
+        </div>
+      </div>
+      <div style="text-align:center; margin-bottom:24px;">
+        <button class="btn" onclick="resetBatch()">&#8617; Clear batch</button>
+      </div>
+    </div>
+  </div>
+
 </main>
 </body>
-<script src = "NewIndexJava.js"></script>
+<script src="NewIndexJava.js"></script>
 </html>

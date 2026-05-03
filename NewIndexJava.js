@@ -991,6 +991,7 @@ async function processBatchFiles(files) {
 
   if (batchResults.length > 0) {
     renderBatchTable(batchResults);
+    renderGroupVisualisation(batchResults);
     document.getElementById('batchResults').style.display = 'block';
   }
 }
@@ -1097,6 +1098,7 @@ function resetBatch() {
   document.getElementById('batchFileCount').textContent  = '';
   document.getElementById('batchError').style.display    = 'none';
   document.getElementById('batchFileInput').value        = '';
+  if (trajectoryChartInst) { trajectoryChartInst.destroy(); trajectoryChartInst = null; }
 }
 
 // ============================================================
@@ -1123,4 +1125,138 @@ function switchTab(tab) {
     tabBatch.style.borderBottom  = '2px solid #185FA5';
     tabBatch.style.color         = '#185FA5';
   }
+}
+
+// ============================================================
+// Group Visualisation
+// Renders mean ± SD table and RMSSD trajectory chart
+// from batch results
+// ============================================================
+
+let trajectoryChartInst = null;
+
+// Called after batch processing completes
+function renderGroupVisualisation(rows) {
+  if (!rows || rows.length === 0) return;
+
+  renderGroupSummaryTable(rows);
+  renderTrajectoryChart(rows);
+}
+
+// ---- Mean ± SD table ----
+// Finds all phase/metric columns and calculates mean and SD across participants
+function renderGroupSummaryTable(rows) {
+  const table = document.getElementById('groupSummaryTable');
+  if (!table) return;
+
+  // Get all column names except ParticipantID
+  const allCols   = Object.keys(rows[0]).filter(k => k !== 'ParticipantID');
+
+  // Group columns by metric name (e.g. RMSSD) across phases
+  // Column format: Phase1_RMSSD → phase: Phase1, metric: RMSSD
+  const metrics = [...new Set(allCols.map(c => c.split('_').slice(1).join('_')))];
+  const phases  = [...new Set(allCols.map(c => c.split('_')[0]))];
+
+  // Calculate mean and SD for each column
+  function mean(arr) {
+    return arr.reduce((a, b) => a + b, 0) / arr.length;
+  }
+  function sd(arr) {
+    const m = mean(arr);
+    return Math.sqrt(arr.map(v => (v - m) ** 2).reduce((a, b) => a + b, 0) / arr.length);
+  }
+
+  // Build header row with one column per phase
+  const phaseHeaders = phases.map((p, i) => {
+    const c = PHASE_COLORS[i % PHASE_COLORS.length];
+    return `<th style="color:${c.text}">${p.replace(/_/g, ' ')}</th>`;
+  }).join('');
+
+  // Build one row per metric
+  const bodyRows = metrics.map(metric => {
+    const cells = phases.map((phase, i) => {
+      const col    = `${phase}_${metric}`;
+      const values = rows.map(r => parseFloat(r[col])).filter(v => !isNaN(v));
+      if (values.length === 0) return `<td>—</td>`;
+      const c      = PHASE_COLORS[i % PHASE_COLORS.length];
+      const m      = mean(values).toFixed(2);
+      const s      = sd(values).toFixed(2);
+      return `<td style="color:${c.text};font-weight:500">${m} ± ${s}</td>`;
+    }).join('');
+    return `<tr>
+      <td class="metric-name">${metric.replace(/_/g, ' ')}</td>
+      ${cells}
+    </tr>`;
+  }).join('');
+
+  table.innerHTML = `
+    <thead><tr>
+      <th>Metric</th>${phaseHeaders}
+    </tr></thead>
+    <tbody>${bodyRows}</tbody>`;
+}
+
+// ---- RMSSD trajectory chart ----
+// One line per participant showing RMSSD across phases
+function renderTrajectoryChart(rows) {
+  if (trajectoryChartInst) trajectoryChartInst.destroy();
+
+  const canvas = document.getElementById('trajectoryChart');
+  if (!canvas) return;
+
+  // Find all RMSSD columns and sort by phase number
+  const rmssdCols = Object.keys(rows[0])
+    .filter(k => k.endsWith('_RMSSD'))
+    .sort();
+
+  // X axis labels: phase names
+  const labels = rmssdCols.map(c => c.replace('_RMSSD', '').replace(/_/g, ' '));
+
+  // One dataset per participant
+  const datasets = rows.map((row, i) => {
+    // Cycle through a set of colours for individual lines
+    const colours = ['#185FA5', '#993C1D', '#3B6D11', '#534AB7', '#BA7517',
+                     '#0C7C7C', '#8B2E8B', '#2E6B2E', '#8B4513', '#4169E1'];
+    const colour  = colours[i % colours.length];
+
+    return {
+      label:       row.ParticipantID || `P${i + 1}`,
+      data:        rmssdCols.map(col => parseFloat(row[col]) || null),
+      borderColor: colour,
+      backgroundColor: colour + '33',
+      borderWidth: 1.5,
+      pointRadius: 4,
+      tension:     0.2,
+    };
+  });
+
+  trajectoryChartInst = new Chart(canvas, {
+    type: 'line',
+    data: { labels, datasets },
+    options: {
+      responsive:          true,
+      maintainAspectRatio: false,
+      animation:           false,
+      plugins: {
+        legend: { display: true, position: 'right' },
+        tooltip: {
+          callbacks: {
+            label: ctx => `${ctx.dataset.label}: ${ctx.parsed.y?.toFixed(2) ?? '—'} ms`
+          }
+        }
+      },
+      scales: {
+        x: {
+          title: { display: true, text: 'Phase', font: { size: 11 }, color: '#888780' },
+          ticks: { font: { size: 11 }, color: '#888780' },
+          grid:  { color: '#F1EFE8' }
+        },
+        y: {
+          title: { display: true, text: 'RMSSD (ms)', font: { size: 11 }, color: '#888780' },
+          ticks: { font: { size: 11 }, color: '#888780' },
+          grid:  { color: '#F1EFE8' }
+        }
+      }
+    }
+  });
 }

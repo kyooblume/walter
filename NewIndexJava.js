@@ -600,7 +600,21 @@ function renderCharts(allValid, phases) {
           }
         }
       },
-      annotation: { annotations: annots } // Phase boundary lines and background boxes
+      annotation: { annotations: annots }, // Phase boundary lines and background boxes
+      zoom: {
+        zoom: {
+          wheel:   { enabled: true },   // Mouse wheel zoom
+          pinch:   { enabled: true },   // Mobile pinch zoom
+          mode:    'x',                 // Only zoom on x axis (time)
+        },
+        pan: {
+          enabled: true,
+          mode:    'x',                 // Only pan on x axis
+        },
+        limits: {
+          x: { min: 'original', max: 'original' }, // Can't pan beyond original data
+        }
+      }
     },
     scales: {
       x: { type: 'linear', title: { display: true, text: 'Time (s)', font: { size: 11 }, color: '#888780' }, ticks: { font: { size: 11 }, color: '#888780' }, grid: { color: '#F1EFE8' } },
@@ -779,6 +793,12 @@ function renderTable(session, phaseMetrics) {
 // ============================================================
 // Part 6 — Export
 // ============================================================
+
+// Resets zoom on a chart back to the original full view
+function resetZoom(id) {
+  const inst = id === 'rrChart' ? rrChartInst : hrChartInst;
+  if (inst) inst.resetZoom();
+}
 
 // Downloads a chart canvas as a PNG image
 function downloadChart(id, filename) {

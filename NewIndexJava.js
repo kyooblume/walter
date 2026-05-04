@@ -603,16 +603,18 @@ function renderCharts(allValid, phases) {
       annotation: { annotations: annots }, // Phase boundary lines and background boxes
       zoom: {
         zoom: {
-          wheel:   { enabled: true },   // Mouse wheel zoom
-          pinch:   { enabled: true },   // Mobile pinch zoom
-          mode:    'x',                 // Only zoom on x axis (time)
+          wheel:       { enabled: true },
+          pinch:       { enabled: true },
+          mode:        'x',
+          // Double-click resets zoom back to original view
+          onZoomComplete: ({ chart }) => { chart.update('none'); }
         },
         pan: {
           enabled: true,
-          mode:    'x',                 // Only pan on x axis
+          mode:    'x',
         },
         limits: {
-          x: { min: 'original', max: 'original' }, // Can't pan beyond original data
+          x: { min: 'original', max: 'original' },
         }
       }
     },
@@ -646,6 +648,10 @@ function renderCharts(allValid, phases) {
     data: { datasets: [{ data: hrData, borderColor: '#993C1D', backgroundColor: 'transparent' }] },
     options: makeOptions('HR (bpm)', allAnnotations)
   });
+
+  // Double-click resets zoom on both charts
+  document.getElementById('rrChart').ondblclick = () => rrChartInst && rrChartInst.resetZoom();
+  document.getElementById('hrChart').ondblclick = () => hrChartInst && hrChartInst.resetZoom();
 }
 
 // Renders the Poincaré plot — a scatter chart of RR[n] vs RR[n+1]
@@ -719,6 +725,9 @@ function renderPoincare(phases) {
       }
     }
   });
+
+  // Double-click resets zoom on Poincaré plot
+  document.getElementById('poincareChart').ondblclick = () => poincareChartInst && poincareChartInst.resetZoom();
 }
 
 // Renders the summary metrics table with one column per phase, change scores, and full session

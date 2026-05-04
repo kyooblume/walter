@@ -93,7 +93,13 @@
       <div class="card">
         <div class="card-header">
           <span class="card-title">Poincaré plot — RR[n] vs RR[n+1]</span>
-          <button class="btn btn-sm" onclick="downloadChart('poincareChart', 'walter_poincare.png')">Download PNG</button>
+          <div style="display:flex; gap:8px;">
+            <button class="btn btn-sm" onclick="resetZoomPoincare()">Reset zoom</button>
+            <button class="btn btn-sm" onclick="downloadChart('poincareChart', 'walter_poincare.png')">Download PNG</button>
+          </div>
+        </div>
+        <div style="font-size:11px; color:#888780; margin-bottom:8px;">
+          Scroll to zoom · Drag to pan · Double-click to reset
         </div>
         <div class="chart-wrap"><canvas id="poincareChart"></canvas></div>
       </div>

@@ -688,6 +688,21 @@ function renderPoincare(phases) {
           callbacks: {
             label: ctx => `RR[n]: ${ctx.parsed.x.toFixed(0)}ms, RR[n+1]: ${ctx.parsed.y.toFixed(0)}ms`
           }
+        },
+        zoom: {
+          zoom: {
+            wheel: { enabled: true },
+            pinch: { enabled: true },
+            mode:  'xy',  // Zoom both axes for scatter chart
+          },
+          pan: {
+            enabled: true,
+            mode:    'xy',
+          },
+          limits: {
+            x: { min: 'original', max: 'original' },
+            y: { min: 'original', max: 'original' },
+          }
         }
       },
       scales: {
@@ -798,6 +813,11 @@ function renderTable(session, phaseMetrics) {
 function resetZoom(id) {
   const inst = id === 'rrChart' ? rrChartInst : hrChartInst;
   if (inst) inst.resetZoom();
+}
+
+// Resets zoom on the Poincaré plot
+function resetZoomPoincare() {
+  if (poincareChartInst) poincareChartInst.resetZoom();
 }
 
 // Downloads a chart canvas as a PNG image

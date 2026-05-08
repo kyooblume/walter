@@ -1,27 +1,18 @@
 
 
 import { theseVaribales } from "./config.js";
-import { getValidRows, calcMetrics } from "./HRVMaths.js";
-import { renderCharts, renderPoincare } from "./chart.js";
-import { buildPhases } from "./fileParser.js";
-import { showError, hideError, renderSessionMeta, renderLegend, renderMetricCards, renderTable,switchTab,toggleDarkMode,getArtefactMethod,getThreshold,renderBatchTable,renderGroupSummaryTable, copyMethodsStatement } from "./ui.js";
-import { downloadCSV,downloadBatchCSV,downloadChart} from "./export.js";
+import { getValidRows, calcMetrics,calculateDataQuality } from "./HRVMaths.js";
+import { renderCharts, renderPoincare,renderTrajectoryChart,resetZoom } from "./chart.js";
+import { buildPhases,parseBatchFile } from "./fileParser.js";
+import { showError, hideError, renderSessionMeta, renderLegend, renderMetricCards, renderTable,switchTab,toggleDarkMode,getArtefactMethod,getThreshold,renderBatchTable,renderGroupSummaryTable, copyMethodsStatement,renderArtefactPanel,renderQualitySummary } from "./ui.js";
+import { downloadCSV,downloadBatchCSV,downloadChart,generateMethodsStatement} from "./export.js";
 
 
-
-
- if (window.ChartAnnotation) {
-    Chart.register(window.ChartAnnotation);
-  }
-
-
-const batchFileInputEl = document.getElementById('batchFileInput');
-if (batchFileInputEl) {
-  batchFileInputEl.addEventListener('change', e => {
-    if (e.target.files.length > 0) processBatchFiles(e.target.files);
-  });
-}
-
+// ----- Get DOM elements -----
+const fileInput  = document.getElementById('fileInput');
+const uploadCard = document.getElementById('uploadCard');
+const errorBox   = document.getElementById('errorBox');
+const results    = document.getElementById('results');
 
 // Trigger file processing when user selects a file via the input
 fileInput.addEventListener('change', e => {
@@ -38,11 +29,17 @@ uploadCard.addEventListener('drop', e => {
 });
 
 
-// ----- Get DOM elements -----
-const fileInput  = document.getElementById('fileInput');
-const uploadCard = document.getElementById('uploadCard');
-const errorBox   = document.getElementById('errorBox');
-const results    = document.getElementById('results');
+ if (window.ChartAnnotation) {
+    Chart.register(window.ChartAnnotation);
+  }
+
+
+const batchFileInputEl = document.getElementById('batchFileInput');
+if (batchFileInputEl) {
+  batchFileInputEl.addEventListener('change', e => {
+    if (e.target.files.length > 0) processBatchFiles(e.target.files);
+  });
+}
 
 
 
@@ -120,7 +117,7 @@ async function processBatchFiles(files) {
     errorEl.textContent     = `Errors: ${errors.join(' | ')}`;
   }
 
-  if (batchResults.length > 0) {
+  if (theseVaribales.batchResults.length > 0) {
     renderBatchTable(theseVaribales.batchResults);
     renderGroupVisualisation(theseVaribales.batchResults);
     document.getElementById('batchResults').style.display = 'block';
@@ -225,15 +222,17 @@ function resetApp() {
   uploadCard.style.display = 'block';
   results.style.display    = 'none';
   fileInput.value          = '';
-  parsedAllValid           = null;
+  theseVaribales.parsedAllValid           = null;
   // Clear session notes when resetting
   const notesEl = document.getElementById('sessionNotes');
   if (notesEl) notesEl.value = '';
   theseVaribales.parsedPhases = null;
   hideError();
-  if (rrChartInst) { rrChartInst.destroy(); rrChartInst = null; }
-  if (hrChartInst) { hrChartInst.destroy(); hrChartInst = null; }
-  if (poincareChartInst) { poincareChartInst.destroy(); poincareChartInst = null; }
+
+  if(Chart.getChart("rrChart")) Chart.getChart("rrChart").destroy();
+  if(Chart.getChart("hrChart")) Chart.getChart("hrChart").destroy();
+  if(Chart.getChart("poincareChart")) Chart.getChart("poincareChart").destroy();
+
 }
 
 function resetBatch() {
@@ -242,7 +241,7 @@ function resetBatch() {
   document.getElementById('batchFileCount').textContent  = '';
   document.getElementById('batchError').style.display    = 'none';
   document.getElementById('batchFileInput').value        = '';
-  if (trajectoryChartInst) { trajectoryChartInst.destroy(); trajectoryChartInst = null; }
+  if (Chart.getChart("trajectoryChart")) Chart.getChart("trajectoryChart").destroy();
 }
 
 

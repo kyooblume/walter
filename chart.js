@@ -6,6 +6,7 @@ import { getArtefactMethod, getThreshold } from "./ui.js";
 let rrChartInst = null;
 let hrChartInst = null;
 let poincareChartInst = null;
+let trajectoryChartInst = null;
 
 
 export function renderCharts(allValid, phases) {

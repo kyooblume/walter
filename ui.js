@@ -32,7 +32,7 @@ export function renderMetricCards(s, phaseMetrics) {
 }
 
 // Renders the summary metrics table with one column per phase, change scores, and full session
-export function renderTable(session, phaseMetrics) {
+export function renderTable(session, phaseMetrics, sessionFreq, phaseFreq) {
   const metrics = [
     { label: 'Beat count', key: 'count',    unit: 'beats' },
     { label: 'Mean RR',    key: 'meanRR',   unit: 'ms'    },
@@ -113,9 +113,55 @@ export function renderTable(session, phaseMetrics) {
         </tr>`;
       }).join('')}
     </tbody>`;
+
+  // Add frequency domain rows if data is available
+  if (phaseFreq && phaseFreq.length > 0) {
+    const freqMetrics = [
+      { label: 'LF power', key: 'lf',   unit: 'ms²' },
+      { label: 'HF power', key: 'hf',   unit: 'ms²' },
+      { label: 'LF/HF',    key: 'lfhf', unit: ''    },
+    ];
+
+    const warnings = phaseFreq.filter(p => p.f.warning).map(p => p.label);
+
+    const freqRows = freqMetrics.map(m => {
+      const phaseCells = phaseFreq.map((p, i) => {
+        const c   = PHASE_COLORS[i % PHASE_COLORS.length];
+        const val = p.f[m.key] ?? '—';
+        return `<td style="color:${c.text};font-weight:500">${val}</td>`;
+      }).join('');
+
+      const sessionCell = phaseFreq.length > 0
+        ? `<td>${sessionFreq ? sessionFreq[m.key] ?? '—' : '—'}</td>`
+        : '';
+
+      // Change scores not applicable for frequency domain metrics
+      const changeCell = phaseMetrics.length === 2 ? `<td>—</td><td>—</td>` : '';
+
+      return `<tr>
+        <td class="metric-name">${m.label}</td>
+        <td class="unit-cell">${m.unit}</td>
+        ${phaseCells}
+        ${changeCell}
+        ${sessionCell}
+      </tr>`;
+    }).join('');
+
+    table.querySelector('tbody').innerHTML += freqRows;
+
+    // Show warning if any phase was too short for reliable analysis
+    if (warnings.length > 0) {
+      table.querySelector('tbody').innerHTML += `
+        <tr>
+          <td colspan="20" style="font-size:11px;color:#888780;padding:8px 12px;">
+            ⚠ Frequency domain: recording too short for reliable analysis in ${warnings.join(', ')} (minimum 60s per phase recommended)
+          </td>
+        </tr>`;
+    }
+  }
 }
 
-export function toggleDarkMode(){
+
     document.body.classList.toggle('dark')
 }
 

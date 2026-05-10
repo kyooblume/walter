@@ -118,3 +118,101 @@ export function calculateDataQuality(heartBeatsRecorded,FilterdRows,AllMetrics){
     return { heartBeatDataTotal, HeartBeatDataretained, messedUpBeats, rating, percentRetained: percentRetained.toFixed(1)};
 };
 
+
+// ============================================================
+// Frequency Domain Analysis
+// Calculates LF power, HF power, and LF/HF ratio using FFT
+// Method: linear interpolation at 4Hz, then FFT via mathjs
+// Band definitions from Task Force (1996)
+// ============================================================
+
+// Step 1: Resample RR intervals onto a regular 4Hz grid using linear interpolation
+// FFT requires evenly spaced data — raw RR data is irregularly spaced (one per heartbeat)
+function interpolateRR(timestamps, rrValues, fs = 4) {
+  // Convert timestamps to seconds from session start
+  const t0      = timestamps[0];
+  const timeSec = timestamps.map(t => (t - t0) / 1000);
+
+  // Create evenly spaced time grid at fs Hz
+  const tEnd    = timeSec[timeSec.length - 1];
+  const grid    = [];
+  for (let t = 0; t <= tEnd; t += 1 / fs) grid.push(t);
+
+  // Linear interpolation: for each grid point find surrounding data points
+  const interpolated = grid.map(t => {
+    // Find the two surrounding data points
+    let i = 0;
+    while (i < timeSec.length - 1 && timeSec[i + 1] < t) i++;
+
+    if (i >= timeSec.length - 1) return rrValues[rrValues.length - 1];
+
+    const t1 = timeSec[i],     t2 = timeSec[i + 1];
+    const v1 = rrValues[i],    v2 = rrValues[i + 1];
+
+    // Linear interpolation formula: v1 + (v2-v1) * (t-t1)/(t2-t1)
+    return v1 + (v2 - v1) * (t - t1) / (t2 - t1);
+  });
+
+  return interpolated;
+}
+
+// Step 2 & 3: Apply FFT and extract LF, HF power
+// Requires mathjs to be loaded (window.math)
+export function calcFrequencyDomain(rows) {
+  // Need at least 60 seconds for reliable LF estimation (2 cycles at 0.04Hz)
+  const t0  = parseFloat(rows[0].timestamp_ms);
+  const t1  = parseFloat(rows[rows.length - 1].timestamp_ms);
+  const dur = (t1 - t0) / 1000;
+
+  if (dur < 60) {
+    return { lf: null, hf: null, lfhf: null, warning: 'Recording too short for reliable frequency domain analysis (minimum 60s required)' };
+  }
+
+  // Check mathjs is available
+  if (!window.math || !window.math.fft) {
+    return { lf: null, hf: null, lfhf: null, warning: 'mathjs not loaded' };
+  }
+
+  const timestamps = rows.map(r => parseFloat(r.timestamp_ms));
+  const rrValues   = rows.map(r => parseFloat(r.rr_ms));
+
+  // Step 1: Resample at 4 Hz
+  const fs           = 4;
+  const interpolated = interpolateRR(timestamps, rrValues, fs);
+  const N            = interpolated.length;
+
+  // Step 2: Apply FFT via mathjs
+  // mathjs.fft returns array of complex numbers { re, im }
+  const fftResult = window.math.fft(interpolated);
+
+  // Step 3: Calculate power spectrum
+  // Power = real² + imaginary² for each frequency bin
+  // Frequency resolution = fs / N (Hz per bin)
+  const freqResolution = fs / N;
+
+  let lf = 0;
+  let hf = 0;
+
+  // Only process first half of FFT output (second half is mirror image)
+  for (let i = 0; i < N / 2; i++) {
+    const freq  = i * freqResolution;
+    const power = fftResult[i].re ** 2 + fftResult[i].im ** 2;
+
+    // LF band: 0.04 – 0.15 Hz (Task Force, 1996)
+    if (freq >= 0.04 && freq < 0.15) lf += power;
+
+    // HF band: 0.15 – 0.40 Hz (Task Force, 1996)
+    if (freq >= 0.15 && freq < 0.40) hf += power;
+  }
+
+  // Normalise by number of points
+  lf = lf / N;
+  hf = hf / N;
+
+  return {
+    lf:      lf.toFixed(2),
+    hf:      hf.toFixed(2),
+    lfhf:    hf > 0 ? (lf / hf).toFixed(3) : '—',
+    warning: null
+  };
+}

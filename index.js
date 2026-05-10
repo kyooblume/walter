@@ -1,7 +1,7 @@
 
 
 import { theseVaribales } from "./config.js";
-import { getValidRows, calcMetrics,calculateDataQuality } from "./HRVMaths.js";
+import { getValidRows, calcMetrics,calculateDataQuality, calcFrequencyDomain } from "./HRVMaths.js";
 import { renderCharts, renderPoincare,renderTrajectoryChart,resetZoom } from "./chart.js";
 import { buildPhases,parseBatchFile } from "./fileParser.js";
 import { showError, hideError, renderSessionMeta, renderLegend, renderMetricCards, renderTable,switchTab,toggleDarkMode,getArtefactMethod,getThreshold,renderBatchTable,renderGroupSummaryTable, copyMethodsStatement,renderArtefactPanel,renderQualitySummary } from "./ui.js";
@@ -140,10 +140,16 @@ function renderResults(fileName,allRows,allValid, phases) {
 
   const sessionMetrics = calcMetrics(allValid, method, threshold);
   const phaseMetrics   = phases.map(p => {
-  
     const validRows = getValidRows(p.rows);
-    return{label: p.label,m:calcMetrics(validRows,method,threshold)};
+    return { label: p.label, m: calcMetrics(validRows, method, threshold) };
   });
+
+  // Calculate frequency domain metrics per phase and full session
+  const sessionFreq = calcFrequencyDomain(allValid);
+  const phaseFreq   = phases.map(p => ({
+    label: p.label,
+    f:     calcFrequencyDomain(getValidRows(p.rows))
+  }));
 
   renderSessionMeta(fileName,sessionMetrics)
 
@@ -157,12 +163,12 @@ function renderResults(fileName,allRows,allValid, phases) {
   });
 
   renderLegend(phases);
-  renderArtefactPanel(method, threshold); // Settings panel — always visible on results page
+  renderArtefactPanel(method, threshold);
   renderMetricCards(sessionMetrics, phaseMetrics);
   renderQualitySummary(phaseQuality);
   renderCharts(allValid, phases);
   renderPoincare(phases);
-  renderTable(sessionMetrics, phaseMetrics);
+  renderTable(sessionMetrics, phaseMetrics, sessionFreq, phaseFreq);
 
   theseVaribales.summaryData = { session: sessionMetrics, phases: phaseMetrics, method, threshold, quality: phaseQuality, fileName, allRows, allValid, phasesRaw: phases };
 }

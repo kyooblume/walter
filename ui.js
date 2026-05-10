@@ -161,7 +161,7 @@ export function renderTable(session, phaseMetrics, sessionFreq, phaseFreq) {
   }
 }
 
-
+export function toggleDarkMode(){
     document.body.classList.toggle('dark')
 }
 

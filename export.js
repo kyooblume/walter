@@ -3,8 +3,36 @@ import { theseVaribales } from "./config.js";
 export function downloadChart(id, filename) {
   const canvas = document.getElementById(id);
   const link   = document.createElement('a');
-  link.download = filename;
-  link.href     = canvas.toDataURL('image/png');
+  const chart = window.Chart.getChart(id);
+
+  const originalFile = theseVaribales.summaryData?.fileName?.replace(/\.csv$/i, '') || 'participant';
+  const cleanBase = filename ? filename.replace('.png', '') : 'chart';
+  let phaseText = 'All-Phases';
+
+  if(chart && id !== 'poincareChart' && id !== 'trajectoryChart' && theseVaribales.parsedPhases){
+    const minX = chart.scales.x.min;
+    const maxX = chart.scales.x.max;
+
+    const startRow = theseVaribales.summaryData.allRows.find( r=> (r.event || ""). trim() === 'SESSION_START');
+    const t0 = startRow ? parseFloat(startRow.timestamp_ms) : parseFloat(theseVaribales.summaryData.allValid[0].timestamp_ms);
+
+
+  const visablePhases = theseVaribales.parsedPhases.filter( p=> {
+    const pStart = (parseFloat(p.rows[0].timestamp_ms) - t0) / 1000;
+    const pEnd = (parseFloat(p.rows[p.rows.length - 1].timestamp_ms) - t0) / 1000;
+    return (pEnd >= minX && pStart <= maxX);
+  });
+
+  if(visablePhases.length > 0 ){
+    phaseText = visablePhases.map(p => p.label.replace(/\s+/g, '')).join('-');
+  }
+  }
+
+
+
+
+  link.download = `${originalFile}_${cleanBase}_${phaseText}.png`;
+  link.href = canvas.toDataURL('image/png');
   link.click();
 }
 

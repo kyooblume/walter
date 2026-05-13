@@ -207,6 +207,22 @@ export function renderPoincare(phases) {
       animation:           false,
       plugins: {
         legend: { display: true, position: 'top' },
+        zoom: {
+          zoom:{
+            wheel:{ enabled: true },
+            pinch: {enabled: true},
+            mode: 'xy'
+          },
+          pan:{
+            enabled: true,
+            mode: 'xy',
+          },
+
+          limits:{
+            x: { min: 'original', max: 'original' },
+            y: { min: 'orrginal', max: 'original'}
+          }
+        },
         tooltip: {
           callbacks: {
             label: ctx => `RR[n]: ${ctx.parsed.x.toFixed(0)}ms, RR[n+1]: ${ctx.parsed.y.toFixed(0)}ms`
@@ -231,9 +247,12 @@ export function renderPoincare(phases) {
 
 // Resets zoom on a chart back to the original full view
 export function resetZoom(id) {
-  const inst = id === 'rrChart' ? rrChartInst : hrChartInst;
-  if (inst) inst.resetZoom();
-}
+
+  if(id === 'rrChart' && rrChartInst) rrChartInst.resetZoom();
+  else if ( id === 'hrChart' && hrChartInst) hrChartInst.resetZoom();
+  else if (id === 'poincareChart' && poincareChartInst) poincareChartInst.resetZoom();
+
+};
 
 // ---- RMSSD trajectory chart ----
 // One line per participant showing RMSSD across phases

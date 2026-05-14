@@ -122,3 +122,24 @@ export function generateMethodsStatement(method, threshold) {
   }
   return 'Artefact handling: No successive difference filtering was applied. Only physiological range filtering (300–2000ms) was used.';
 }
+
+export function generateAPAReport(){
+  const data = theseVaribales.summaryData;
+  if (!data || !data.phases) return "No data available to generate report"
+
+
+  const methods = generateMethodsStatement(data.method, data.threshold);
+  const totalBeats = data.session.count;
+  const methodsText = ` Heart rate variability data was processed using WALTER Heart Rate Variability Analyser. ${methods} A total of ${totalBeats} beats were analyzed across the session`
+
+  let resultsText = "The statistics for RMSSD (ms) across the session phases were: ";
+  const phaseStrings = data.phases.map(p => {
+    return `${p.label} (M = ${p.m.rmssd})`;
+  });
+
+  resultsText += phaseStrings.join(", ") + "."
+
+  return `### APA 7 Methods & Results Draft\n\n${methodsText}\n\n${resultsText}`;
+
+
+}

@@ -4,7 +4,7 @@ import { theseVaribales } from "./config.js";
 import { getValidRows, calcMetrics,calculateDataQuality, calcFrequencyDomain } from "./HRVMaths.js";
 import { renderCharts, renderPoincare,renderTrajectoryChart,resetZoom } from "./chart.js";
 import { buildPhases,parseBatchFile } from "./fileParser.js";
-import { showError, hideError, renderSessionMeta, renderLegend, renderMetricCards, renderTable,switchTab,toggleDarkMode,getArtefactMethod,getThreshold,renderBatchTable,renderGroupSummaryTable, copyMethodsStatement,renderArtefactPanel,renderQualitySummary } from "./ui.js";
+import { showError, hideError, renderSessionMeta, renderLegend, renderMetricCards, renderTable,switchTab,toggleDarkMode,getArtefactMethod,getThreshold,renderBatchTable,renderGroupSummaryTable, copyMethodsStatement,renderArtefactPanel,renderQualitySummary,showAPAReport } from "./ui.js";
 import { downloadCSV,downloadBatchCSV,downloadChart,generateMethodsStatement} from "./export.js";
 
 
@@ -262,3 +262,4 @@ window.onSettingsChange = onSettingsChange;
 window.resetZoom = resetZoom;
 window.downloadChart = downloadChart;
 window.copyMethodsStatement = copyMethodsStatement;
+window.showAPAReport = showAPAReport;

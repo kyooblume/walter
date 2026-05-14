@@ -1,5 +1,5 @@
 import { PHASE_COLORS } from "./config.js";
-import { generateMethodsStatement } from "./export.js";
+import { generateMethodsStatement, generateAPAReport } from "./export.js";
 import { parseFilenameMeta } from "./fileParser.js";
 
 export function showError(msg) {
@@ -426,4 +426,9 @@ export function copyMethodsStatement() {
     btn.textContent = 'Copied!';
     setTimeout(() => { btn.textContent = original; }, 1500);
   });
+}
+
+export function showAPAReport(){
+  const report = generateAPAReport();
+  document.getElementById(`apaReportBox`).value = report;
 }

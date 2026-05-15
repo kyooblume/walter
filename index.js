@@ -250,6 +250,29 @@ function resetBatch() {
   if (Chart.getChart("trajectoryChart")) Chart.getChart("trajectoryChart").destroy();
 }
 
+// keyabord shortcuts
+
+//alt u to upload a file 
+//alt m for dark mode 
+document.addEventListener('keydown', (e) => {
+  if ((e.altKey || e.metaKey) && e.key.toLowerCase() === 'u'){
+    e.preventDefault();
+
+    const panelSingle = document.getElementById('panelSingle');
+    if (window.getComputedStyle(panelSingle).display !== 'none'){
+      document.getElementById('fileInput').click();
+    } else{
+      document.getElementById('batchFileInput').click();
+    }
+  }
+
+    if(e.altKey && e.key.toLowerCase() === 'm'){
+      e.preventDefault();
+      window.toggleDarkMode();
+    }
+  
+});
+
 
 window.switchTab = switchTab;
 window.toggleDarkMode = toggleDarkMode;

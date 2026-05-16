@@ -170,22 +170,55 @@ export function switchTab(tab) {
   const panelBatch  = document.getElementById('panelBatch');
   const tabSingle   = document.getElementById('tabSingle');
   const tabBatch    = document.getElementById('tabBatch');
+  const tabAbout    = document.getElementById('tabAbout');
 
   if (tab === 'single') {
     panelSingle.style.display = 'block';
     panelBatch.style.display  = 'none';
+    panelAbout.style.display = 'none'
+
     tabSingle.style.borderBottom = '2px solid #185FA5';
     tabSingle.style.color        = '#185FA5';
+
     tabBatch.style.borderBottom  = '2px solid transparent';
     tabBatch.style.color         = '#5F5E5A';
-  } else {
+
+    tabAbout.style.borderBottom  = '2px solid transparent';
+    tabAbout.style.color         = 'green'
+
+  } else if (tab === 'batch') {
     panelSingle.style.display = 'none';
     panelBatch.style.display  = 'block';
+    panelAbout.style.display = 'none'
+
     tabSingle.style.borderBottom = '2px solid transparent';
     tabSingle.style.color        = '#5F5E5A';
+
     tabBatch.style.borderBottom  = '2px solid #185FA5';
     tabBatch.style.color         = '#185FA5';
+
+    tabAbout.style.borderBottom = '2px solid transparent';
+    tabAbout.style.color = 'green'
   }
+
+  else if (tab === 'about'){
+
+    panelSingle.style.display = 'none';
+    panelBatch.style.display = 'none';
+    panelAbout.style.display = 'block'
+    
+    tabSingle.style.borderBottom = '2px solid transparent';
+    tabSingle.style.color = "green";
+
+    tabBatch.style.borderBottom = '2px solid transparent';
+    tabBatch.style.color = "orange";
+
+    tabAbout.style.borderBottom = '2px solid blue';
+    tabAbout.style.color = 'pink';
+
+  }
+
+  
 }
 
 export function renderSessionMeta(fileName,sessionMetrics){

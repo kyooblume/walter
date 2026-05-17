@@ -173,9 +173,10 @@ export function renderCharts(allValid, phases) {
     options: makeOptions('HR (bpm)', allAnnotations)
   });
 
-  // Double-click resets zoom — ondblclick is more reliable than the plugin's built-in reset
-  document.getElementById('rrChart').ondblclick  = () => rrChartInst  && rrChartInst.resetZoom();
-  document.getElementById('hrChart').ondblclick  = () => hrChartInst  && hrChartInst.resetZoom();
+  // Double-click / double-tap resets zoom
+  // Uses both ondblclick (PC) and touchstart timing (mobile)
+  addDoubleClickReset('rrChart',       () => rrChartInst      && rrChartInst.resetZoom());
+  addDoubleClickReset('hrChart',       () => hrChartInst      && hrChartInst.resetZoom());
 }
 
 export function renderPoincare(phases) {
@@ -232,8 +233,29 @@ export function renderPoincare(phases) {
     }
   });
 
-  // Double-click resets zoom on Poincaré plot
-  document.getElementById('poincareChart').ondblclick = () => poincareChartInst && poincareChartInst.resetZoom();
+  // Double-click / double-tap resets zoom on Poincaré plot
+  addDoubleClickReset('poincareChart', () => poincareChartInst && poincareChartInst.resetZoom());
+}
+
+// Helper: attaches both ondblclick (PC) and double-tap detection (mobile)
+// to a canvas element, calling the provided reset function on activation
+function addDoubleClickReset(canvasId, resetFn) {
+  const el = document.getElementById(canvasId);
+  if (!el) return;
+
+  // PC: standard double-click
+  el.ondblclick = resetFn;
+
+  // Mobile: detect two taps within 300ms
+  let lastTap = 0;
+  el.addEventListener('touchend', e => {
+    const now = Date.now();
+    if (now - lastTap < 300) {
+      e.preventDefault(); // Prevent zoom-in browser default
+      resetFn();
+    }
+    lastTap = now;
+  }, { passive: false });
 }
 
 // Resets zoom on a chart back to the original full view

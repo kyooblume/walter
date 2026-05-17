@@ -12,10 +12,10 @@ export function hideError() { errorBox.style.display = 'none'; }
 export function renderMetricCards(s, phaseMetrics) {
   const grid    = document.getElementById('metricsGrid');
   const metrics = [
-    { label: 'RMSSD',   key: 'rmssd',  unit: 'ms'  },
-    { label: 'Mean HR', key: 'meanHR', unit: 'bpm' },
-    { label: 'SDNN',    key: 'sdnn',   unit: 'ms'  },
-    { label: 'pNN50',   key: 'pnn50',  unit: '%'   },
+    { label: 'RMSSD',   key: 'rmssd',  unit: 'ms', desc: 'Root Mean Square of Successive Differences'  },
+    { label: 'Mean HR', key: 'meanHR', unit: 'bpm', desc: 'Average Heart Rate in beats per minute' },
+    { label: 'SDNN',    key: 'sdnn',   unit: 'ms', desc: 'Standard Deviation of NN intervals'  },
+    { label: 'pNN50',   key: 'pnn50',  unit: '%', desc: 'Percentage of NN intervals that differ by more than 50ms'   },
   ];
   grid.innerHTML = metrics.map(m => {
     const phases = phaseMetrics.map((p, i) => {
@@ -24,7 +24,7 @@ export function renderMetricCards(s, phaseMetrics) {
     }).join('');
     return `
       <div class="metric-card">
-        <div class="label">${m.label}</div>
+        <div class="label" title = "${m.desc}">${m.label}</div>
         <div class="value">${s ? s[m.key] : '—'}<span class="unit">${m.unit}</span></div>
         ${phases}
       </div>`;
@@ -34,15 +34,15 @@ export function renderMetricCards(s, phaseMetrics) {
 // Renders the summary metrics table with one column per phase, change scores, and full session
 export function renderTable(session, phaseMetrics, sessionFreq, phaseFreq) {
   const metrics = [
-    { label: 'Beat count', key: 'count',    unit: 'beats' },
-    { label: 'Mean RR',    key: 'meanRR',   unit: 'ms'    },
-    { label: 'Mean HR',    key: 'meanHR',   unit: 'bpm'   },
-    { label: 'RMSSD',      key: 'rmssd',    unit: 'ms'    },
-    { label: 'SDNN',       key: 'sdnn',     unit: 'ms'    },
-    { label: 'pNN50',      key: 'pnn50',    unit: '%'     },
-    { label: 'Min RR',     key: 'minRR',    unit: 'ms'    },
-    { label: 'Max RR',     key: 'maxRR',    unit: 'ms'    },
-    { label: 'Duration',   key: 'duration', unit: 's'     },
+    { label: 'Beat count', key: 'count',    unit: 'beats', desc: 'Total number of heartbeats detected' },
+    { label: 'Mean RR',    key: 'meanRR',   unit: 'ms',    desc: 'Average time between successive heart'    },
+    { label: 'Mean HR',    key: 'meanHR',   unit: 'bpm',   desc: 'Average Heart Rate in beats per minute'   },
+    { label: 'RMSSD',      key: 'rmssd',    unit: 'ms',    desc: 'Root Mean Square of Successive Differences'    },
+    { label: 'SDNN',       key: 'sdnn',     unit: 'ms',    desc: 'Standard Deviation of NN intervals'    },
+    { label: 'pNN50',      key: 'pnn50',    unit: '%',     desc: 'Percentage of succesive NN intervals that vary by more than 50ms'     },
+    { label: 'Min RR',     key: 'minRR',    unit: 'ms',    desc: 'Shortest interval between heartbeats'    },
+    { label: 'Max RR',     key: 'maxRR',    unit: 'ms',    desc: 'Longest interval between heartbeats'    },
+    { label: 'Duration',   key: 'duration', unit: 's',     desc: 'Total duration of the recording or phase'     },
   ];
 
   const table     = document.getElementById('summaryTable');
@@ -105,7 +105,7 @@ export function renderTable(session, phaseMetrics, sessionFreq, phaseFreq) {
           : '';
 
         return `<tr>
-          <td class="metric-name">${m.label}</td>
+          <td class="metric-name" title = "${m.desc}">${m.label}</td>
           <td class="unit-cell">${m.unit}</td>
           ${phaseCells}
           ${changeCells}
@@ -117,9 +117,9 @@ export function renderTable(session, phaseMetrics, sessionFreq, phaseFreq) {
   // Add frequency domain rows if data is available
   if (phaseFreq && phaseFreq.length > 0) {
     const freqMetrics = [
-      { label: 'LF power', key: 'lf',   unit: 'ms²' },
-      { label: 'HF power', key: 'hf',   unit: 'ms²' },
-      { label: 'LF/HF',    key: 'lfhf', unit: ''    },
+      { label: 'LF power', key: 'lf',   unit: 'ms²', desc: 'Low Frequency power' },
+      { label: 'HF power', key: 'hf',   unit: 'ms²', desc: 'High Frequency power' },
+      { label: 'LF/HF',    key: 'lfhf', unit: ''   , desc: 'Ratio of Low High Frequency power' },
     ];
 
     const warnings = phaseFreq.filter(p => p.f.warning).map(p => p.label);
@@ -139,7 +139,7 @@ export function renderTable(session, phaseMetrics, sessionFreq, phaseFreq) {
       const changeCell = phaseMetrics.length === 2 ? `<td>—</td><td>—</td>` : '';
 
       return `<tr>
-        <td class="metric-name">${m.label}</td>
+        <td class="metric-name" title = "${m.desc}">${m.label}</td>
         <td class="unit-cell">${m.unit}</td>
         ${phaseCells}
         ${changeCell}

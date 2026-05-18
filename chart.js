@@ -188,13 +188,15 @@ export function renderCharts(allValid, phases) {
 
     options: makeOptions('RR (ms)',allAnnotations)
 
-  })
+  });
+  document.getElementById('rrChart').addEventListener('dblclick', () => rrChartInst.resetZoom())
 
   hrChartInst = new Chart(document.getElementById('hrChart'), {
     type: 'line',
     data: { datasets: [{ data: hrData, borderColor: '#993C1D', backgroundColor: 'transparent', pointRadius: showPoints ? 2 : 0, pointHoverRadius: 6 }] },
     options: makeOptions('HR (bpm)', allAnnotations)
   });
+  document.getElementById('rrChart').addEventListener('dblclick', () => rrChartInst.resetZoom())
 
   // Double-click / double-tap resets zoom
   // Uses both ondblclick (PC) and touchstart timing (mobile)
@@ -256,6 +258,8 @@ export function renderPoincare(phases) {
       }
     }
   });
+
+  document.getElementById('poincareChart').addEventListener('dblclick', () => poincareChartInst.resetZoom())
 
   // Double-click / double-tap resets zoom on Poincaré plot
   addDoubleClickReset('poincareChart', () => poincareChartInst && poincareChartInst.resetZoom());

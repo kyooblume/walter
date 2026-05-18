@@ -1,4 +1,4 @@
-import { PHASE_COLORS, theseVaribales } from "./config.js";
+import { PHASE_COLORS, appState } from "./config.js";
 import { handleArtefacts,getValidRows } from "./HRVMaths.js";
 import { getArtefactMethod, getThreshold } from "./ui.js";
 
@@ -38,7 +38,7 @@ export function renderCharts(allValid, phases) {
     Chart.register(window.ChartAnnotation);
   }
 
-  const startRow = theseVaribales.summaryData.allRows.find(r => (r.event || "").trim() === 'SESSION_START');
+  const startRow = appState.summaryData.allRows.find(r => (r.event || "").trim() === 'SESSION_START');
   const t0 = startRow ? parseFloat(startRow.timestamp_ms) : parseFloat(allValid[0].timestamp_ms);
 
 

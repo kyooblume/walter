@@ -1,23 +1,23 @@
-import { theseVaribales } from "./config.js";
+import { appState } from "./config.js";
 // Downloads a chart canvas as a PNG image
 export function downloadChart(id, filename) {
   const canvas = document.getElementById(id);
   const link   = document.createElement('a');
   const chart = window.Chart.getChart(id);
 
-  const originalFile = theseVaribales.summaryData?.fileName?.replace(/\.csv$/i, '') || 'participant';
+  const originalFile = appState.summaryData?.fileName?.replace(/\.csv$/i, '') || 'participant';
   const cleanBase = filename ? filename.replace('.png', '') : 'chart';
   let phaseText = 'All-Phases';
 
-  if(chart && id !== 'poincareChart' && id !== 'trajectoryChart' && theseVaribales.parsedPhases){
+  if(chart && id !== 'poincareChart' && id !== 'trajectoryChart' && appState.parsedPhases){
     const minX = chart.scales.x.min;
     const maxX = chart.scales.x.max;
 
-    const startRow = theseVaribales.summaryData.allRows.find( r=> (r.event || ""). trim() === 'SESSION_START');
-    const t0 = startRow ? parseFloat(startRow.timestamp_ms) : parseFloat(theseVaribales.summaryData.allValid[0].timestamp_ms);
+    const startRow = appState.summaryData.allRows.find( r=> (r.event || ""). trim() === 'SESSION_START');
+    const t0 = startRow ? parseFloat(startRow.timestamp_ms) : parseFloat(appState.summaryData.allValid[0].timestamp_ms);
 
 
-  const visablePhases = theseVaribales.parsedPhases.filter( p=> {
+  const visablePhases = appState.parsedPhases.filter( p=> {
     const pStart = (parseFloat(p.rows[0].timestamp_ms) - t0) / 1000;
     const pEnd = (parseFloat(p.rows[p.rows.length - 1].timestamp_ms) - t0) / 1000;
     return (pEnd >= minX && pStart <= maxX);
@@ -37,7 +37,7 @@ export function downloadChart(id, filename) {
 }
 
 export function downloadCSV() {
-  if (!theseVaribales.summaryData.session) return;
+  if (!appState.summaryData.session) return;
   const metrics = [
     { label: 'Beat count', key: 'count',    unit: 'beats' },
     { label: 'Mean RR',    key: 'meanRR',   unit: 'ms'    },
@@ -49,40 +49,40 @@ export function downloadCSV() {
     { label: 'Max RR',     key: 'maxRR',    unit: 'ms'    },
     { label: 'Duration',   key: 'duration', unit: 's'     },
   ];
-  const methodsStmt = generateMethodsStatement(theseVaribales.summaryData.method, theseVaribales.summaryData.threshold);
+  const methodsStmt = generateMethodsStatement(appState.summaryData.method, appState.summaryData.threshold);
   let csv = `# ${methodsStmt}\n`;
 
   // Add session notes as a comment line if the student has entered any
   const notesEl = document.getElementById('sessionNotes');
   const notes   = notesEl ? notesEl.value.trim() : '';
   if (notes) csv += `# Notes: ${notes}\n`;
-  const phaseHeaders  = theseVaribales.summaryData.phases.map(p => p.label).join(',');
+  const phaseHeaders  = appState.summaryData.phases.map(p => p.label).join(',');
 
   // Include change score headers if exactly 2 phases
-  const showChange    = theseVaribales.summaryData.phases.length === 2 &&
-                        theseVaribales.summaryData.phases[0].m &&
-                        theseVaribales.summaryData.phases[1].m;
+  const showChange    = appState.summaryData.phases.length === 2 &&
+                        appState.summaryData.phases[0].m &&
+                        appState.summaryData.phases[1].m;
   const changeHeaders = showChange ? ',Change (abs),Change (%)' : '';
-  const sessionHeader = theseVaribales.summaryData.phases.length > 0 ? ',Full session' : '';
+  const sessionHeader = appState.summaryData.phases.length > 0 ? ',Full session' : '';
 
   csv += `Metric,Unit,${phaseHeaders}${changeHeaders}${sessionHeader}\n`;
 
   metrics.forEach(m => {
-    const phaseCells = theseVaribales.summaryData.phases.map(p => p.m ? p.m[m.key] : '').join(',');
+    const phaseCells = appState.summaryData.phases.map(p => p.m ? p.m[m.key] : '').join(',');
 
     // Calculate change scores for CSV
     let changeCells = '';
     if (showChange) {
-      const v1  = parseFloat(theseVaribales.summaryData.phases[0].m[m.key]);
-      const v2  = parseFloat(theseVaribales.summaryData.phases[1].m[m.key]);
+      const v1  = parseFloat(appState.summaryData.phases[0].m[m.key]);
+      const v2  = parseFloat(appState.summaryData.phases[1].m[m.key]);
       const abs = v2 - v1;
       const pct = v1 !== 0 ? (abs / v1) * 100 : 0;
       const sign = abs > 0 ? '+' : '';
       changeCells = `,${sign}${abs.toFixed(2)},${sign}${pct.toFixed(1)}%`;
     }
 
-    const sessionCell = theseVaribales.summaryData.phases.length > 0
-      ? ',' + (theseVaribales.summaryData.session ? theseVaribales.summaryData.session[m.key] : '')
+    const sessionCell = appState.summaryData.phases.length > 0
+      ? ',' + (appState.summaryData.session ? appState.summaryData.session[m.key] : '')
       : '';
     csv += `${m.label},${m.unit},${phaseCells}${changeCells}${sessionCell}\n`;
   });
@@ -95,14 +95,14 @@ export function downloadCSV() {
 
 // Download the batch results as a SPSS-ready CSV
 export function downloadBatchCSV() {
-  if (theseVaribales.batchResults.length === 0) return;
+  if (appState.batchResults.length === 0) return;
 
-  const headers = Object.keys(theseVaribales.batchResults[0]);
+  const headers = Object.keys(appState.batchResults[0]);
 
   // No comment lines — SPSS requires clean CSV with no leading rows
   let csv = headers.join(',') + '\n';
 
-  theseVaribales.batchResults.forEach(row => {
+  appState.batchResults.forEach(row => {
     csv += headers.map(h => row[h] ?? '').join(',') + '\n';
   });
 
@@ -124,7 +124,7 @@ export function generateMethodsStatement(method, threshold) {
 }
 
 export function generateAPAReport(){
-  const data = theseVaribales.summaryData;
+  const data = appState.summaryData;
   if (!data || !data.phases) return "No data available to generate report"
 
 

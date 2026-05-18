@@ -1,4 +1,4 @@
-import { theseVaribales } from './config.js';
+import { appState } from './config.js';
 
 export function getValidRows(rows){
     return rows.filter(r=>{
@@ -79,7 +79,7 @@ export function calcMetrics(rows, method = 'interpolate', threshold = 20) {
   const sdnn  = Math.sqrt(rr.map(v => (v - meanRR) ** 2).reduce((a, b) => a + b, 0) / rr.length);
   const pnn50 = diffs.length ? (diffs.filter(d => Math.abs(d) > 50).length / diffs.length) * 100 : 0;
 
-  const startRow = theseVaribales.summaryData.allRows ? theseVaribales.summaryData.allRows.find (r => ( r.event || '').trim() === 'SESSION_START'):null;
+  const startRow = appState.summaryData.allRows ? appState.summaryData.allRows.find (r => ( r.event || '').trim() === 'SESSION_START'):null;
   const t0 = startRow ? parseFloat(startRow.timestamp_ms) : parseFloat(rows[0].timestamp_ms);
   const t1 = parseFloat(rows[rows.length - 1].timestamp_ms);
   const duration = (t1 - t0) / 1000;

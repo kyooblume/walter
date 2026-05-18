@@ -1,4 +1,4 @@
-import { theseVaribales } from "./config.js";
+import { appState } from "./config.js";
 import { getValidRows,calcMetrics } from "./HRVMaths.js";
 
 export function buildPhases(allRows){
@@ -23,7 +23,7 @@ export function buildPhases(allRows){
         .sort((a,b) => a-b);
 
         return CurrentphaseNumbers.map(n => ({
-            label: theseVaribales.phaseLabels[n] || `Phase ${n}`,
+            label: appState.phaseLabels[n] || `Phase ${n}`,
             CurrentphaseNumbers:n,
             rows:phaseData[n]
         }))

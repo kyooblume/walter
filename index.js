@@ -1,6 +1,6 @@
 
 
-import { theseVaribales } from "./config.js";
+import { appState } from "./config.js";
 import { getValidRows, calcMetrics,calculateDataQuality, calcFrequencyDomain } from "./HRVMaths.js";
 import { renderCharts, renderPoincare,renderTrajectoryChart,resetZoom } from "./chart.js";
 import { buildPhases,parseBatchFile } from "./fileParser.js";
@@ -81,7 +81,7 @@ function processFile(file) {
 
 // Process all uploaded files one by one
 async function processBatchFiles(files) {
-  theseVaribales.batchResults = [];
+  appState.batchResults = [];
   const progressEl = document.getElementById('batchProgress');
   const errorEl    = document.getElementById('batchError');
   const countEl    = document.getElementById('batchFileCount');
@@ -101,7 +101,7 @@ async function processBatchFiles(files) {
     try {
       const result = await parseBatchFile(file, method, threshold);
       if (result) {
-        theseVaribales.batchResults.push(result);
+        appState.batchResults.push(result);
       } else {
         errors.push(`${file.name}: could not process`);
       }
@@ -117,9 +117,9 @@ async function processBatchFiles(files) {
     errorEl.textContent     = `Errors: ${errors.join(' | ')}`;
   }
 
-  if (theseVaribales.batchResults.length > 0) {
-    renderBatchTable(theseVaribales.batchResults);
-    renderGroupVisualisation(theseVaribales.batchResults);
+  if (appState.batchResults.length > 0) {
+    renderBatchTable(appState.batchResults);
+    renderGroupVisualisation(appState.batchResults);
     document.getElementById('batchResults').style.display = 'block';
   }
 }
@@ -131,9 +131,9 @@ function renderResults(fileName,allRows,allValid, phases) {
   uploadCard.style.display = 'none';
   results.style.display    = 'block';
 
-  theseVaribales.parsedAllValid = allValid;
-  theseVaribales.parsedPhases = phases;
-  theseVaribales.summaryData.allRows = allRows
+  appState.parsedAllValid = allValid;
+  appState.parsedPhases = phases;
+  appState.summaryData.allRows = allRows
 
   const method    = getArtefactMethod();
   const threshold = getThreshold();
@@ -170,7 +170,7 @@ function renderResults(fileName,allRows,allValid, phases) {
   renderPoincare(phases);
   renderTable(sessionMetrics, phaseMetrics, sessionFreq, phaseFreq);
 
-  theseVaribales.summaryData = { session: sessionMetrics, phases: phaseMetrics, method, threshold, quality: phaseQuality, fileName, allRows, allValid, phasesRaw: phases };
+  appState.summaryData = { session: sessionMetrics, phases: phaseMetrics, method, threshold, quality: phaseQuality, fileName, allRows, allValid, phasesRaw: phases };
 }
 
 // Called after batch processing completes
@@ -184,7 +184,7 @@ function renderGroupVisualisation(rows) {
 // Called whenever a setting changes — recalculates metrics and redraws table
 // Uses the saved parsed data so the student does not need to re-upload
 function onSettingsChange() {
-  if (!theseVaribales.parsedAllValid || !theseVaribales.parsedPhases) return;
+  if (!appState.parsedAllValid || !appState.parsedPhases) return;
 
   const method    = getArtefactMethod();
   const threshold = getThreshold();
@@ -198,8 +198,8 @@ function onSettingsChange() {
   if (stmtEl) stmtEl.value = generateMethodsStatement(method, threshold);
 
   // Recalculate and redraw metrics and table only (charts are not redrawn for performance)
-  const sessionMetrics = calcMetrics(theseVaribales.parsedAllValid, method, threshold);
-  const phaseMetrics   = theseVaribales.parsedPhases.map(p => ({
+  const sessionMetrics = calcMetrics(appState.parsedAllValid, method, threshold);
+  const phaseMetrics   = appState.parsedPhases.map(p => ({
     label: p.label,
     m: calcMetrics(getValidRows(p.rows), method, threshold)
   }));
@@ -207,18 +207,18 @@ function onSettingsChange() {
   renderMetricCards(sessionMetrics, phaseMetrics);
   renderTable(sessionMetrics, phaseMetrics);
 
-  theseVaribales.summaryData = { session: sessionMetrics, phases: phaseMetrics, method, threshold };
+  appState.summaryData = { session: sessionMetrics, phases: phaseMetrics, method, threshold };
 }
 
 function updatePhaseLabel(phaseNumber,newLabel){
-    theseVaribales.phaseLabels[phaseNumber] = newLabel.trim() || `Phase ${phaseNumber}`;
+    appState.phaseLabels[phaseNumber] = newLabel.trim() || `Phase ${phaseNumber}`;
 
-    const newPhases = buildPhases(theseVaribales.summaryData.allRows)
+    const newPhases = buildPhases(appState.summaryData.allRows)
 
     renderResults(
-        theseVaribales.summaryData.fileName,
-        theseVaribales.summaryData.allRows,
-        theseVaribales.summaryData.allValid,
+        appState.summaryData.fileName,
+        appState.summaryData.allRows,
+        appState.summaryData.allValid,
         newPhases
     );
 }
@@ -228,11 +228,11 @@ function resetApp() {
   uploadCard.style.display = 'block';
   results.style.display    = 'none';
   fileInput.value          = '';
-  theseVaribales.parsedAllValid           = null;
+  appState.parsedAllValid           = null;
   // Clear session notes when resetting
   const notesEl = document.getElementById('sessionNotes');
   if (notesEl) notesEl.value = '';
-  theseVaribales.parsedPhases = null;
+  appState.parsedPhases = null;
   hideError();
 
   if(Chart.getChart("rrChart")) Chart.getChart("rrChart").destroy();
@@ -242,7 +242,7 @@ function resetApp() {
 }
 
 function resetBatch() {
-  theseVaribales.batchResults = [];
+  appState.batchResults = [];
   document.getElementById('batchResults').style.display  = 'none';
   document.getElementById('batchFileCount').textContent  = '';
   document.getElementById('batchError').style.display    = 'none';
@@ -274,12 +274,12 @@ document.addEventListener('keydown', (e) => {
 });
 
 function toggleChartSettings(){
-  if(theseVaribales.parsedAllValid && theseVaribales.parsedPhases){
-    renderCharts(theseVaribales.parsedAllValid, theseVaribales.parsedPhases);
-    renderPoincare(theseVaribales.parsedPhases);
+  if(appState.parsedAllValid && appState.parsedPhases){
+    renderCharts(appState.parsedAllValid, appState.parsedPhases);
+    renderPoincare(appState.parsedPhases);
   }
-  if (theseVaribales.batchResults && theseVaribales.batchResults.length > 0){
-    renderTrajectoryChart(theseVaribales.batchResults);
+  if (appState.batchResults && appState.batchResults.length > 0){
+    renderTrajectoryChart(appState.batchResults);
   }
 }
 

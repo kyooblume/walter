@@ -273,7 +273,17 @@ document.addEventListener('keydown', (e) => {
   
 });
 
+function toggleChartSettings(){
+  if(theseVaribales.parsedAllValid && theseVaribales.parsedPhases){
+    renderCharts(theseVaribales.parsedAllValid, theseVaribales.parsedPhases);
+    renderPoincare(theseVaribales.parsedPhases);
+  }
+  if (theseVaribales.batchResults && theseVaribales.batchResults.length > 0){
+    renderTrajectoryChart(theseVaribales.batchResults);
+  }
+}
 
+window.toggleChartSettings = toggleChartSettings;
 window.switchTab = switchTab;
 window.toggleDarkMode = toggleDarkMode;
 window.resetApp = resetApp;

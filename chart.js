@@ -3,6 +3,25 @@ import { handleArtefacts,getValidRows } from "./HRVMaths.js";
 import { getArtefactMethod, getThreshold } from "./ui.js";
 
 
+
+const customCanvasBackgroundColor = {
+  id: 'customCanvasBackgroundColor',
+  beforeDraw: (chart,args,options) => {
+    if(options.color && options.color !== 'transparent'){
+      const{ctx} = chart;
+      ctx.save();
+      ctx.globalCompositeOperation = 'destination-over';
+      ctx.fillStyle = options.color;
+      ctx.fillRect(0,0, chart.width, chart.height);
+      ctx.restore();
+    }
+  }
+};
+
+Chart.register(customCanvasBackgroundColor);
+
+
+
 let rrChartInst = null;
 let hrChartInst = null;
 let poincareChartInst = null;
@@ -12,6 +31,9 @@ let trajectoryChartInst = null;
 export function renderCharts(allValid, phases) {
   // Explicitly register the annotation plugin with Chart.js
   // Required in Chart.js v4 — loading the script alone is not enough
+  const showPoints = document.getElementById('togglePoints')?.checked || false;
+  const whiteBg    = document.getElementById('toggleBg')?.checked || false;
+  const bgColor    = whiteBg ? '#ffffff' : 'transparent';
   if (window.ChartAnnotation) {
     Chart.register(window.ChartAnnotation);
   }
@@ -67,7 +89,7 @@ export function renderCharts(allValid, phases) {
       dotSizes.push(4);
     } else {
       pointColors.push('#185FA5');
-      dotSizes.push(0);
+      dotSizes.push(showPoints ? 2 : 0);
     }
   });
 
@@ -109,6 +131,7 @@ export function renderCharts(allValid, phases) {
     responsive: true, maintainAspectRatio: false, animation: false,
     elements: { point: { radius: 0 }, line: { borderWidth: 1.5, tension: 0.2 } },
     plugins: {
+      customCanvasBackgroundColor: { color: bgColor },
       legend: { display: false },
       tooltip: {
         callbacks: {
@@ -169,7 +192,7 @@ export function renderCharts(allValid, phases) {
 
   hrChartInst = new Chart(document.getElementById('hrChart'), {
     type: 'line',
-    data: { datasets: [{ data: hrData, borderColor: '#993C1D', backgroundColor: 'transparent' }] },
+    data: { datasets: [{ data: hrData, borderColor: '#993C1D', backgroundColor: 'transparent', pointRadius: showPoints ? 2 : 0, pointHoverRadius: 6 }] },
     options: makeOptions('HR (bpm)', allAnnotations)
   });
 
@@ -211,6 +234,7 @@ export function renderPoincare(phases) {
       maintainAspectRatio: false,
       animation:           false,
       plugins: {
+        customCanvasBackgroundColor: { color: document.getElementById('toggleBg')?.checked ? '#ffffff': 'transparent' },
         legend: { display: true, position: 'top' },
         tooltip: {
           callbacks: {
@@ -307,6 +331,7 @@ export function renderTrajectoryChart(rows) {
       maintainAspectRatio: false,
       animation:           false,
       plugins: {
+        customCanvasBackgroundColor: { color: document.getElementById('toggleBg')?.checked ? '#ffffff' : 'transparent' },
         legend: { display: true, position: 'right' },
         tooltip: {
           callbacks: {

@@ -69,6 +69,18 @@
       <div class="phase-legend" id="phaseLegend"></div>
       <div class="metrics-grid" id="metricsGrid"></div>
 
+      <div class = "card" style = "padding: 12px 20px; margin-bottom: 20px; display: flex; gap:24px; align-items:center; font-size: 13px;">
+        <strong style = "color: var(--text);"> Chart Options</strong>
+        <label style = "display: flex; align-items: center; gap:6px; cursor:pointer; color:var(--text);">
+          <input type = "checkbox" id="togglePoints" onchange="toggleChartSettings()">
+          Show data points 
+        </label>
+        <label style = "display: flex; align-items: center; gap:6px; cursor: pointer; color: var(--text)">
+          <input type = "checkbox" id = "toggleBg" onchange = "toggleChartSettings()">
+          Solid white background (best for copying)
+        </label>
+      </div>
+
       <div class="card">
         <div class="card-header">
           <span class="card-title">Tachogram — RR intervals over time</span>

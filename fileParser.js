@@ -29,15 +29,33 @@ export function buildPhases(allRows){
         }))
 }
 
-export function parseFilenameMeta(filename){
-    const baseName = filename.replace(/\.csv$/i,"")
-    const parts = baseName.split("_")
-    return{
-        filename:filename,
-        participantID:parts[0]||'unknown',
-        sessionType:parts[1]||"Unknown",
-        date:parts[2]||"Unknown"
-    };
+export function parseFilenameMeta(filename) {
+  const baseName = filename.replace(/\.csv$/i, '');
+  const parts    = baseName.split('_');
+  const rawID    = parts[0] || 'unknown';
+
+  // Detect Harvey Duo files — participant ID ends in .1 or .2
+  // e.g. P001.1_D3-03-9A-46-91-9A_2026-05-12_14-30.csv
+  const duoMatch  = rawID.match(/^(.+)\.([12])$/);
+  const isDuo     = !!duoMatch;
+  const baseID    = isDuo ? duoMatch[1] : rawID;   // e.g. P001
+  const duoSuffix = isDuo ? duoMatch[2] : null;    // '1' or '2', or null
+
+  // parts[1] is the H10 MAC address (dashes instead of colons)
+  // e.g. D3-03-9A-46-91-9A → D3:03:9A:46:91:9A
+  const macRaw   = parts[1] || 'unknown';
+  const macClean = macRaw.replace(/-/g, ':');
+
+  return {
+    filename,
+    participantID: rawID,      // full ID e.g. P001 or P001.1
+    baseID,                    // base ID without Duo suffix e.g. P001
+    isDuo,
+    duoSuffix,                 // '1', '2', or null
+    h10Mac: macClean,          // H10 sensor MAC address
+    date:   parts[2] || 'unknown',
+    time:   (parts[3] || 'unknown').replace(/-/g, ':'),
+  };
 }
 
 // Parse a single CSV file and return one row of metrics

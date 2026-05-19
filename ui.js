@@ -225,12 +225,22 @@ export function renderSessionMeta(fileName,sessionMetrics){
     const box = document.getElementById("sessionMeta");
     if(!box) return;
     const meta = parseFilenameMeta(fileName);
+
+    // Show a Harvey Duo badge next to the participant ID if applicable
+    const duoBadge = meta.isDuo
+      ? `<span style="font-size:11px;background:#EAF3DE;color:#27500A;
+                      padding:2px 8px;border-radius:10px;margin-left:8px;">
+           Harvey Duo · Device ${meta.duoSuffix}
+         </span>`
+      : '';
+
     box.innerHTML = `
-    <p><strong>Filename:</strong>${meta.filename}</p>
-    <p><strong>Participant ID:</strong>${meta.participantID}</p>
-    <p><strong>Session:</strong>${meta.sessionType}</p>
-    <p><strong>Date:</strong>${meta.date}</p>
-    <p><strong>Total duration:</strong>${sessionMetrics.duration}</p>
+    <p><strong>Filename:</strong> ${meta.filename}</p>
+    <p><strong>Participant ID:</strong> ${meta.participantID}${duoBadge}</p>
+    <p><strong>H10 sensor:</strong> ${meta.h10Mac}</p>
+    <p><strong>Date:</strong> ${meta.date}</p>
+    <p><strong>Time:</strong> ${meta.time}</p>
+    <p><strong>Total duration:</strong> ${sessionMetrics.duration}s</p>
     `;
 }
 

@@ -207,7 +207,7 @@ function onSettingsChange() {
   renderMetricCards(sessionMetrics, phaseMetrics);
   renderTable(sessionMetrics, phaseMetrics);
 
-  appState.summaryData = { session: sessionMetrics, phases: phaseMetrics, method, threshold };
+  appState.summaryData = { ...appState.summaryData, session: sessionMetrics, phases: phaseMetrics, method, threshold };
 }
 
 function updatePhaseLabel(phaseNumber,newLabel){

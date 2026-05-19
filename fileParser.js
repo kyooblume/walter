@@ -24,8 +24,8 @@ export function buildPhases(allRows){
 
         return CurrentphaseNumbers.map(n => ({
             label: appState.phaseLabels[n] || `Phase ${n}`,
-            CurrentphaseNumbers:n,
-            rows:phaseData[n]
+            phaseNumber: n,
+            rows: phaseData[n]
         }))
 }
 

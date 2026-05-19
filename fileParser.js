@@ -18,11 +18,11 @@ export function buildPhases(allRows){
             }
             phaseData[phase].push(r);
         });
-        const CurrentphaseNumbers = Object.keys(phaseData)
+        const phaseNumbers = Object.keys(phaseData)
         .map(Number)
         .sort((a,b) => a-b);
 
-        return CurrentphaseNumbers.map(n => ({
+        return phaseNumbers.map(n => ({
             label: appState.phaseLabels[n] || `Phase ${n}`,
             phaseNumber: n,
             rows: phaseData[n]

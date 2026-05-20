@@ -159,7 +159,7 @@ export async function classifyFiles(fileList){
   const soloFiles = parsed.filter(p=> !p.meta.isDuo);
 
   const duoGroups = new Map();
-  for(const p of dupCandidates) {
+  for(const p of duoCandidates) {
     const key = `${p.meta.baseID}__${p.meta.date}`;
     if (!duoGroups.has(key)) duoGroups.set(key,[]);
     duoGroups.get(key).push(p);
@@ -211,13 +211,13 @@ export async function classifyFiles(fileList){
 
   const seen = new Set();
   for(const s of sessions){
-    const id = s.kind === 'duo-pair' ? `${s.badeID} (pair)` s.baseID;
+    const id = s.kind === 'duo-pair' ? `${s.baseID} (pair)` : s.baseID;
     if(seen.has(id)){
       warnings.push(`${id} appears more than once in this drop. Check before processing`)
     }
     seen.add(id);
   }
 
-  return{ sesssions, warnings, demographics};
+  return { sessions, warnings, demographics };
 
 }

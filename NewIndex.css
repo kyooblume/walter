@@ -52,22 +52,32 @@ body.dark{
     padding: 24px 16px;
 }
 
-  .upload-card {
-    background: var(--whiteBackgroundColor);
-    border: 1.5px dashed var(--grayBackgroundColor);
-    border-radius: var(--radius);
-    padding: 40px 24px;
-    text-align: center;
-    margin-bottom: 24px;
-    cursor: pointer;
-    transition: border-color 0.2s;
+.drop-zone{
+  border:2px dashed var(--grayBackgroundColor);
+  background-color: var(--whiteBackgroundColor);
+  padding: 50px 20px;
+  text-align: center;
+  border-radius: var(--radius);
+  margin-bottom: 24px;
+  cursor:pointer;
+  transition: all 0.2s ease-in-out;
 }
-  .upload-card:hover { border-color: var(--blueText); }
-  .upload-card.drag-over { border-color: var(--blueText); background: lightblue; }
-  .upload-icon { font-size: 32px; margin-bottom: 12px; }
-  .upload-card h2 { font-size: 16px; font-weight: 500; margin-bottom: 6px; }
-  .upload-card p { font-size: 13px; color: var(--grayBackgroundColor); margin-bottom: 16px; }
-  .upload-card input[type=file] { display: none; }
+
+.drop-zone:hover{
+  border-color: var(--blueText);
+}
+
+.drop-zone.dragover{
+  border-color: var(--blueText);
+  background-color: lightblue;
+}
+
+.drop-buttons{
+  margin-top: 20px;
+  display:flex;
+  justify-content: center;
+  gap:15px
+}
 
   .btn {
     display: inline-block;

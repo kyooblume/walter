@@ -9,37 +9,62 @@ import { downloadCSV,downloadBatchCSV,downloadChart,generateMethodsStatement} fr
 
 
 // ----- Get DOM elements -----
+const dropZone = document.getElementById('dropZone');
+const folderInput = document.getElementById('folderInput');
 const fileInput  = document.getElementById('fileInput');
 const uploadCard = document.getElementById('uploadCard');
 const errorBox   = document.getElementById('errorBox');
 const results    = document.getElementById('results');
 
 // Trigger file processing when user selects a file via the input
-fileInput.addEventListener('change', e => {
-  if (e.target.files[0]) processFile(e.target.files[0]);
-});
+if(window.Chart.ChartAnnotation){
+  chart.register(window.ChartAnnotation);
+}
 
-// Drag and drop support
-uploadCard.addEventListener('dragover',  e => { e.preventDefault(); uploadCard.classList.add('drag-over'); });
-uploadCard.addEventListener('dragleave', () => uploadCard.classList.remove('drag-over'));
-uploadCard.addEventListener('drop', e => {
-  e.preventDefault();
-  uploadCard.classList.remove('drag-over');
-  if (e.dataTransfer.files[0]) processFile(e.dataTransfer.files[0]);
+fileInput.addEventListener('change', (event) => {
+  const files = Array.from(event.target.files);
+  processIncomingFiles(files);
 });
 
 
- if (window.ChartAnnotation) {
-    Chart.register(window.ChartAnnotation);
-  }
-
-
-const batchFileInputEl = document.getElementById('batchFileInput');
-if (batchFileInputEl) {
-  batchFileInputEl.addEventListener('change', e => {
-    if (e.target.files.length > 0) processBatchFiles(e.target.files);
+if(folderInput){
+  folderInput.addEventListener('change', (event) => {
+    const files = Array.from(event.target.files);
+    processIncomingFiles(files);
   });
 }
+
+if(dropZone){
+  dropZone.addEventListener('dragover', (event) => {
+    event.preventDefault();
+    dropZone.classList.add('dragover');
+  });
+
+
+  dropZone.addEventListener('dragleave', () =>{
+    dropZone.classList.remove('dragover');
+  });
+
+  dropZone.addEventListener('drop', (event) =>{
+    event.preventDefault();
+    dropZone.classList.remove('dragover');
+    const files = Array.from(event.dataTransfer.files);
+    processIncomingFiles(files);
+  });
+};
+
+function processIncomingFiles(files){
+  const csvFiles = files.filter(f => f.name.toLowerCase().endsWith('.csv'));
+
+  if(csvFiles.length === 0){
+    alert("No CSV files found, Try again")
+    return;
+  }
+
+  console.log("Ready to classify files, ", csvFiles)
+
+}
+
 
 
 

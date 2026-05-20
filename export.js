@@ -113,6 +113,23 @@ export function downloadBatchCSV() {
   link.click();
 }
 
+// Downloads the data quality summary as a CSV file
+export function downloadQualityCSV() {
+  const quality = appState.summaryData?.quality;
+  if (!quality || quality.length === 0) return;
+
+  let csv = 'Phase,Beats recorded,Beats retained,Beats handled,Rating,Percent retained\n';
+  quality.forEach(p => {
+    csv += `${p.label},${p.q.heartBeatDataTotal},${p.q.HeartBeatDataretained},${p.q.messedUpBeats},${p.q.rating},${p.q.percentRetained}%\n`;
+  });
+
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const link = document.createElement('a');
+  link.download = 'walter_quality.csv';
+  link.href     = URL.createObjectURL(blob);
+  link.click();
+}
+
 export function generateMethodsStatement(method, threshold) {
   if (method === 'interpolate') {
     return `Artefact handling: RR intervals deviating more than ${threshold}% from the preceding interval were replaced using linear interpolation between neighbouring beats.`;

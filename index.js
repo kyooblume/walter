@@ -5,16 +5,19 @@ import { getValidRows, calcMetrics,calculateDataQuality, calcFrequencyDomain } f
 import { renderCharts, renderPoincare,renderTrajectoryChart,resetZoom } from "./chart.js";
 import { buildPhases, parseBatchFile, classifyFiles } from "./fileParser.js";
 import { showError, hideError, renderSessionMeta, renderLegend, renderMetricCards, renderTable, switchTab, toggleDarkMode, getArtefactMethod, getThreshold, renderBatchTable, renderGroupSummaryTable, copyMethodsStatement, renderArtefactPanel, renderQualitySummary, showAPAReport, renderManifest } from "./ui.js";
-import { downloadCSV,downloadBatchCSV,downloadChart,generateMethodsStatement,downloadQualityCSV} from "./export.js";
+import { downloadCSV,downloadBatchCSV,downloadChart,generateMethodsStatement} from "./export.js";
 
 
 // ----- Get DOM elements -----
-const dropZone = document.getElementById('dropZone');
+const dropZone    = document.getElementById('dropZone');
 const folderInput = document.getElementById('folderInput');
-const fileInput  = document.getElementById('fileInput');
-const uploadCard = document.getElementById('uploadCard');
-const errorBox   = document.getElementById('errorBox');
-const results    = document.getElementById('results');
+const fileInput   = document.getElementById('fileInput');
+const uploadCard  = document.getElementById('uploadCard');
+const errorBox    = document.getElementById('errorBox');
+const results     = document.getElementById('results');
+
+// Stores the current manifest between file drops and processing
+let currentManifest = null;
 
 // Trigger file processing when user selects a file via the input
 if(window.Chart.ChartAnnotation){
@@ -53,16 +56,25 @@ if(dropZone){
   });
 };
 
-function processIncomingFiles(files){
+async function processIncomingFiles(files) {
   const csvFiles = files.filter(f => f.name.toLowerCase().endsWith('.csv'));
 
-  if(csvFiles.length === 0){
-    alert("No CSV files found, Try again")
+  if (csvFiles.length === 0) {
+    alert("No CSV files found, Try again");
     return;
   }
 
-  console.log("Ready to classify files, ", csvFiles)
+  // Merge with any files already in the manifest (incremental adding)
+  const existingFiles = currentManifest ? currentManifest.rawFiles : [];
+  const allFiles      = [...existingFiles, ...csvFiles];
 
+  // Classify files into solo / duo-pair / duo-unmatched / demographics
+  const manifest    = await classifyFiles(allFiles);
+  manifest.rawFiles = allFiles;
+  currentManifest   = manifest;
+
+  // Show the manifest panel so the user can review before processing
+  renderManifest(manifest);
 }
 
 // ---- Manifest processing ----

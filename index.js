@@ -3,9 +3,9 @@
 import { appState } from "./config.js";
 import { getValidRows, calcMetrics,calculateDataQuality, calcFrequencyDomain } from "./HRVMaths.js";
 import { renderCharts, renderPoincare,renderTrajectoryChart,resetZoom } from "./chart.js";
-import { buildPhases,classifyFiles } from "./fileParser.js";
-import { showError, hideError, renderSessionMeta, renderLegend, renderMetricCards, renderTable,switchTab,toggleDarkMode,getArtefactMethod,getThreshold,renderBatchTable,renderGroupSummaryTable, copyMethodsStatement,renderArtefactPanel,renderQualitySummary,showAPAReport } from "./ui.js";
-import { downloadCSV,downloadBatchCSV,downloadChart,generateMethodsStatement,downloadQualityCSV} from "./export.js";
+import { buildPhases, parseBatchFile, classifyFiles } from "./fileParser.js";
+import { showError, hideError, renderSessionMeta, renderLegend, renderMetricCards, renderTable, switchTab, toggleDarkMode, getArtefactMethod, getThreshold, renderBatchTable, renderGroupSummaryTable, copyMethodsStatement, renderArtefactPanel, renderQualitySummary, showAPAReport, renderManifest } from "./ui.js";
+import { downloadCSV,downloadBatchCSV,downloadChart,generateMethodsStatement} from "./export.js";
 
 
 // ----- Get DOM elements -----
@@ -61,19 +61,78 @@ function processIncomingFiles(files){
     return;
   }
 
-  const existingFiles = currentManifest ? currentManifest.rawFiles : [];
-  const allFiles = [ ...existingFiles, ...csvFiles];
+  console.log("Ready to classify files, ", csvFiles)
 
-  const manifest = await classifyFiles(allFiles);
-  manifest.rawFiles = allFiles;
-  currentManifest = manifest;
-
-  window.renderManifest(manifest);
 }
 
-document.getElementById('btnProcessManifest').addEventListener('click', () => {
-  console.log("Processing these sessions", currentManifest.sessions)
-});
+// ---- Manifest processing ----
+
+// Called when the user clicks "Process files" in the manifest panel
+async function initManifestProcessing() {
+  if (!currentManifest || currentManifest.sessions.length === 0) return;
+  await processManifest(currentManifest);
+}
+
+const btnProcess = document.getElementById('btnProcessManifest');
+if (btnProcess) btnProcess.addEventListener('click', initManifestProcessing);
+
+// Process all sessions and render the output table
+async function processManifest(manifest) {
+  const progressEl  = document.getElementById('outputProgress');
+  const outputPanel = document.getElementById('outputPanel');
+
+  outputPanel.style.display = 'block';
+  progressEl.style.display  = 'block';
+
+  const method    = getArtefactMethod();
+  const threshold = getThreshold();
+  const results   = [];
+  const errors    = [];
+
+  // Filter out unmatched Duo files if the checkbox is ticked
+  const excludeUnmatched = document.getElementById('excludeUnmatchedDuo')?.checked;
+  const sessions = manifest.sessions.filter(s =>
+    !(excludeUnmatched && s.kind === 'duo-unmatched')
+  );
+
+  for (let i = 0; i < sessions.length; i++) {
+    const s = sessions[i];
+    progressEl.textContent = `Processing ${i + 1} of ${sessions.length}: ${s.baseID}...`;
+
+    try {
+      let row = null;
+
+      if (s.kind === 'solo' || s.kind === 'duo-unmatched') {
+        // Single file — use existing parseBatchFile
+        row = await parseBatchFile(s.file, method, threshold);
+        if (row) row.ParticipantID = s.baseID;
+
+      } else if (s.kind === 'duo-pair') {
+        // Duo pair — process both files, prefix D1_/D2_ to distinguish sensors
+        const row1 = await parseBatchFile(s.file1, method, threshold);
+        const row2 = await parseBatchFile(s.file2, method, threshold);
+        if (row1 && row2) {
+          row = { ParticipantID: s.baseID };
+          Object.keys(row1).forEach(k => { if (k !== 'ParticipantID') row[`D1_${k}`] = row1[k]; });
+          Object.keys(row2).forEach(k => { if (k !== 'ParticipantID') row[`D2_${k}`] = row2[k]; });
+        }
+      }
+
+      if (row) results.push(row);
+      else errors.push(`${s.baseID}: could not process`);
+
+    } catch (err) {
+      errors.push(`${s.baseID}: ${err.message}`);
+    }
+  }
+
+  progressEl.style.display = 'none';
+  if (errors.length > 0) showError(`Some files could not be processed: ${errors.join(' | ')}`);
+  if (results.length > 0) {
+    appState.outputResults = results;
+    renderOutputTable(results);
+  }
+}
 
 
 
@@ -318,17 +377,57 @@ function toggleChartSettings(){
   }
 }
 
+// Renders the output results table — one row per participant
+function renderOutputTable(rows) {
+  const table = document.getElementById('outputTable');
+  if (!table || rows.length === 0) return;
+  const headers = Object.keys(rows[0]);
+  table.innerHTML = `
+    <thead><tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr></thead>
+    <tbody>${rows.map(row =>
+      `<tr>${headers.map(h => `<td>${row[h] ?? '—'}</td>`).join('')}</tr>`
+    ).join('')}</tbody>`;
+}
+
+// Downloads the output results as a SPSS-ready CSV
+function downloadOutputCSV() {
+  const results = appState.outputResults;
+  if (!results || results.length === 0) return;
+  const headers = Object.keys(results[0]);
+  let csv = headers.join(',') + '\n';
+  results.forEach(row => { csv += headers.map(h => row[h] ?? '').join(',') + '\n'; });
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const link = document.createElement('a');
+  link.download = 'walter_output.csv';
+  link.href     = URL.createObjectURL(blob);
+  link.click();
+}
+
+// Resets everything back to the drop zone
+function resetManifest() {
+  currentManifest = null;
+  appState.outputResults = [];
+  document.getElementById('dropZone').style.display      = 'block';
+  document.getElementById('manifestPanel').style.display  = 'none';
+  document.getElementById('outputPanel').style.display    = 'none';
+  if (document.getElementById('fileInput'))   document.getElementById('fileInput').value   = '';
+  if (document.getElementById('folderInput')) document.getElementById('folderInput').value = '';
+}
+
 window.toggleChartSettings = toggleChartSettings;
 window.switchTab = switchTab;
 window.toggleDarkMode = toggleDarkMode;
 window.resetApp = resetApp;
 window.resetBatch = resetBatch;
+window.resetManifest = resetManifest;
 window.downloadCSV = downloadCSV;
 window.downloadBatchCSV = downloadBatchCSV;
 window.downloadQualityCSV = downloadQualityCSV;
+window.downloadOutputCSV = downloadOutputCSV;
 window.updatePhaseLabel = updatePhaseLabel;
 window.onSettingsChange = onSettingsChange;
 window.resetZoom = resetZoom;
 window.downloadChart = downloadChart;
 window.copyMethodsStatement = copyMethodsStatement;
 window.showAPAReport = showAPAReport;
+window.renderManifest = renderManifest;

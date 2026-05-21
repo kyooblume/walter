@@ -40,24 +40,25 @@
 
     </div>
 
-    <div id = "manifestPanel" style = "display:none;" class = "card">
-      <div class = "card-header">
-        <span class = "card-title"> Manifest </span>
+    <!-- Output table — shown after processing -->
+    <div id="outputPanel" style="display:none;">
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Results — all participants</span>
+          <div style="display:flex; gap:8px;">
+            <button class="btn btn-sm" id="btnDownloadOutput" onclick="downloadOutputCSV()">Download CSV (SPSS-ready)</button>
+          </div>
+        </div>
+        <div id="outputProgress" style="font-size:13px; color:#5F5E5A; margin-bottom:12px; display:none;"></div>
+        <div style="overflow-x:auto">
+          <table id="outputTable"></table>
+        </div>
       </div>
-      <div id = "manifestWarnings" style = "color:darkred; font-size:12px;"></div>
-      <div id = "manifestList" style = "margin-bottom:16px"></div>
-
-      <label style = "display:flex; align-items:center; gap:6px; cursor:pointer; font-size:13px; margin-bottom:16px; color:var(--text)";>
-        <input type = "checkbox" id = "excludeUnmatchedDuo">
-        Exclude unmatched Duo files from output
-      </label>
-
-      <div style = "display:flex; gap:12px;">
-        <button class = "btn" onclick = "document.getElementById('fileInput').click()"> Add more files </button>
-        <button class = "btn btn-primary" id="btnProcessManifest"> Process files </button>
+      <div style="text-align:center; margin-bottom:24px;">
+        <button class="btn" onclick="resetManifest()">&#8617; Start again</button>
       </div>
     </div>
-    
+
     <div class="results" id="results">
       <div class="card" id="sessionMetaCard">
         <div class="card-header">
@@ -126,7 +127,7 @@
       <div class="card" id="qualitySummary">
         <div class="card-header">
           <span class="card-title">Data quality summary</span>
-          <button class="btn btn-sm" onclick="downloadQualityCSV()">Download CSV</button>
+          <button onclick="downloadCSV()">Download CSV</button>
         </div>
         <div style="overflow-x:auto">
           <table id="qualityTable"></table>

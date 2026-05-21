@@ -40,6 +40,24 @@
 
     </div>
 
+    <div id = "manifestPanel" style = "display:none;" class = "card">
+      <div class = "card-header">
+        <span class = "card-title"> Manifest </span>
+      </div>
+      <div id = "manifestWarnings" style = "color:darkred; font-size:12px;"></div>
+      <div id = "manifestList" style = "margin-bottom:16px"></div>
+
+      <label style = "display:flex; align-items:center; gap:6px; cursor:pointer; font-size:13px; margin-bottom:16px; color:var(--text)";>
+        <input type = "checkbox" id = "excludeUnmatchedDuo">
+        Exclude unmatched Duo files from output
+      </label>
+
+      <div style = "display:flex; gap:12px;">
+        <button class = "btn" onclick = "document.getElementById('fileInput').click()"> Add more files </button>
+        <button class = "btn btn-primary" id="btnProcessManifest"> Process files </button>
+      </div>
+    </div>
+    
     <div class="results" id="results">
       <div class="card" id="sessionMetaCard">
         <div class="card-header">

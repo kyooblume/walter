@@ -3,7 +3,7 @@
 import { appState } from "./config.js";
 import { getValidRows, calcMetrics,calculateDataQuality, calcFrequencyDomain } from "./HRVMaths.js";
 import { renderCharts, renderPoincare,renderTrajectoryChart,resetZoom } from "./chart.js";
-import { buildPhases,parseBatchFile } from "./fileParser.js";
+import { buildPhases,classifyFiles } from "./fileParser.js";
 import { showError, hideError, renderSessionMeta, renderLegend, renderMetricCards, renderTable,switchTab,toggleDarkMode,getArtefactMethod,getThreshold,renderBatchTable,renderGroupSummaryTable, copyMethodsStatement,renderArtefactPanel,renderQualitySummary,showAPAReport } from "./ui.js";
 import { downloadCSV,downloadBatchCSV,downloadChart,generateMethodsStatement,downloadQualityCSV} from "./export.js";
 
@@ -61,9 +61,19 @@ function processIncomingFiles(files){
     return;
   }
 
-  console.log("Ready to classify files, ", csvFiles)
+  const existingFiles = currentManifest ? currentManifest.rawFiles : [];
+  const allFiles = [ ...existingFiles, ...csvFiles];
 
+  const manifest = await classifyFiles(allFiles);
+  manifest.rawFiles = allFiles;
+  currentManifest = manifest;
+
+  window.renderManifest(manifest);
 }
+
+document.getElementById('btnProcessManifest').addEventListener('click', () => {
+  console.log("Processing these sessions", currentManifest.sessions)
+});
 
 
 

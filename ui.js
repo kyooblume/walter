@@ -475,3 +475,71 @@ export function showAPAReport(){
   const report = generateAPAReport();
   document.getElementById(`apaReportBox`).value = report;
 }
+
+export function renderManifest(manifest){
+  document.getElementById('dropZone').style.display = 'none';
+  document.getElementById('manifestPanel').style.display = 'block';
+
+  const listEl = document.getElementById('manifestList');
+  const warnEl = document.getElementById('manifestWarnings');
+
+  if(manifest.warnings.length > 0){
+    warnEl.innerHTML = manifest.warnings.map( w => `${w}`).join('<br>');
+
+  }else{
+    warnEl.innerHTML = '';
+  }
+
+  let html = '<table style = "width:100%; border-collapse:collapse; font-size:13px; color:var(--text);">';
+
+  manifest.sessions.forEach((s,index) => {
+    let name = '';
+    let type = '';
+    if(s.kind === 'duo-pair'){
+      name = `${s.baseID}.1 + ${s.baseID}.2`;
+      type = 'Harvey Duo pair';
+    } else if (s.kind === 'duo-unmatched'){
+      name = `${s.baseID}${s.meta.duoSuffix || ''}`;
+      type = `Duo file missing ${s.missingPair}`;
+    }else{
+      name = s.baseID;
+      type = 'Solo session';
+    }
+
+    html += `
+    
+    <tr style = "border-bottom:1px solid #ccc">
+      <td style = "padding:8px 0; color:green;">C</td>
+      <td style = "padding:9px;"><strong>${name}</strong></td>
+      <td style = "padding:8px; color:var(--grsayText);">${type}</td>
+      <td style = "padding:8px; color:var(--grsayText);">${s.date}</td>
+      <td style = "padding:8px; text-align:tight;">
+      <button class = "btn btn-sm" onclick = "removeManifestItem(${index})"> Remove</button>
+      </td>
+      </tr>`;
+
+  });
+
+  manifest.demographics.forEach((d,index) => {
+    html += `
+    
+        <tr style = "border-bottom:1px solid #ccc">
+      <td style = "padding:8px 0; color:green;">C</td>
+      <td style = "padding:9px;"><strong>${d.name}</strong></td>
+      <td style = "padding:8px; color:var(--grsayText);">${type}</td>
+      <td style = "padding:8px; color:var(--grsayText);">${s.date}</td>
+      <td style = "padding:8px; text-align:tight;">
+      <button class = "btn btn-sm" onclick = "removeManifestItem(${index})"> Remove</button>
+      </td>
+      </tr>`;
+
+    
+  });
+
+  html += '</table>';
+  listEl.innerHtml = html;
+
+}
+
+window.renderManifest = renderManifest;
+

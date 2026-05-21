@@ -34,11 +34,11 @@
         <button class = "btn btn-primary" onclick="document.getElementById('fileInput').click()"> Choose files </button>
         <button class = "btn btn-primary" onclick="document.getElementById('folderInput').click()"> Choose folders </button>
       </div>
-
-      <input type = "file" id="fileInput" multiple style = "display: none;">
-      <input type = "file" id = "folderInput" webkitdirectory multiple style = "display: none;">
-
     </div>
+
+    <!-- Hidden file inputs — kept outside dropZone so they work when dropZone is hidden -->
+    <input type="file" id="fileInput" multiple style="display:none;">
+    <input type="file" id="folderInput" webkitdirectory multiple style="display:none;">
 
     <!-- Manifest panel — shown after files are dropped, before processing -->
     <div id="manifestPanel" style="display:none;" class="card">

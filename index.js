@@ -559,3 +559,4 @@ window.renderManifest = renderManifest;
 window.renderSessionTray = renderSessionTray;
 window.removeTraySession = removeTraySession;
 window.onTrayRowClick = onTrayRowClick;
+window.appState = appState;

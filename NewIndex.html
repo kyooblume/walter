@@ -34,26 +34,18 @@
         <button class = "btn btn-primary" onclick="document.getElementById('fileInput').click()"> Choose files </button>
         <button class = "btn btn-primary" onclick="document.getElementById('folderInput').click()"> Choose folders </button>
       </div>
+
+      <input type = "file" id="fileInput" multiple style = "display: none;">
+      <input type = "file" id = "folderInput" webkitdirectory multiple style = "display: none;">
+
     </div>
 
-    <!-- Hidden file inputs — kept outside dropZone so they work when dropZone is hidden -->
-    <input type="file" id="fileInput" multiple style="display:none;">
-    <input type="file" id="folderInput" webkitdirectory multiple style="display:none;">
-
-    <!-- Manifest panel — shown after files are dropped, before processing -->
-    <div id="manifestPanel" style="display:none;" class="card">
-      <div class="card-header">
-        <span class="card-title">Manifest</span>
-      </div>
-      <div id="manifestWarnings" style="color:darkred; font-size:12px; margin-bottom:8px;"></div>
-      <div id="manifestList" style="margin-bottom:16px;"></div>
-      <label style="display:flex; align-items:center; gap:6px; cursor:pointer; font-size:13px; margin-bottom:16px; color:var(--text);">
-        <input type="checkbox" id="excludeUnmatchedDuo">
-        Exclude unmatched Duo files from output
-      </label>
-      <div style="display:flex; gap:12px;">
-        <button class="btn" onclick="document.getElementById('fileInput').click()">Add more files</button>
-        <button class="btn btn-primary" id="btnProcessManifest">Process files</button>
+    <!-- Session tray — visible during and after processing when 2+ sessions are loaded -->
+    <div id="sessionTray" style="display:none;">
+      <div class="session-tray">
+        <div class="session-tray-title">Session tray</div>
+        <div id="trayList"></div>
+        <button class="btn tray-add-btn" onclick="document.getElementById('fileInput').click()">＋ Add files</button>
       </div>
     </div>
 
@@ -71,24 +63,6 @@
           <table id="outputTable"></table>
         </div>
       </div>
-
-      <div class = "card">
-        <div class = "card-header">
-          <span class = "card-title"> Group summary - mean/SD </span>
-        </div>
-        <div style = "overflow-x: auto;">
-          <table id = "groupSummaryTable"></table>
-        </div>
-      </div>
-
-      <div class = "card">
-        <div class = "card-header">
-          <span class = "card-title"> RMSSD trajectory -all participants </span>
-          <button class = "btn btn-sm" onclick = "downloadChart('trajectoryChart', 'walter_trajectory.png')"> Donwload PNG </button>
-        </div>
-        <div class = "chart-wrap"><canvas id = "trajectoryChart"> </canvas></div>
-      </div>
-
       <div style="text-align:center; margin-bottom:24px;">
         <button class="btn" onclick="resetManifest()">&#8617; Start again</button>
       </div>
@@ -162,7 +136,7 @@
       <div class="card" id="qualitySummary">
         <div class="card-header">
           <span class="card-title">Data quality summary</span>
-          <button class="btn btn-sm" onclick="downloadQualityCSV()">Download CSV</button>
+          <button onclick="downloadCSV()">Download CSV</button>
         </div>
         <div style="overflow-x:auto">
           <table id="qualityTable"></table>

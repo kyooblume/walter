@@ -212,3 +212,44 @@ body.dark{
     th, td { padding: 8px 10px; }
     .card-header { flex-direction: column; align-items: flex-start; gap: 10px; }
   }
+
+/* ---- File tray ---- */
+.session-tray {
+  background: var(--whiteBackgroundColor);
+  border: 1px solid gray;
+  border-radius: var(--radius);
+  padding: 12px 16px;
+  margin-bottom: 20px;
+  font-size: 13px;
+}
+.session-tray-title {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--grayText);
+  margin-bottom: 8px;
+}
+.tray-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+  border-bottom: 1px solid #E0DED8;
+  cursor: pointer;
+}
+.tray-row:last-of-type { border-bottom: none; }
+.tray-row:hover { background: #F8F8F7; border-radius: 4px; }
+.tray-dot { width: 8px; height: 8px; border-radius: 50%; background: #3B6D11; flex-shrink: 0; }
+.tray-dot.warn { background: #BA7517; }
+.tray-id { font-weight: 600; min-width: 60px; }
+.tray-type { color: var(--grayText); flex: 1; }
+.tray-remove {
+  background: none; border: none; cursor: pointer;
+  color: var(--grayText); font-size: 14px; padding: 0 4px;
+}
+.tray-remove:hover { color: #A32D2D; }
+.tray-add-btn {
+  margin-top: 8px; width: 100%; font-size: 12px;
+  padding: 6px; text-align: center;
+}

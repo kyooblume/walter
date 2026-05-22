@@ -5,7 +5,7 @@ import { getValidRows, calcMetrics,calculateDataQuality, calcFrequencyDomain } f
 import { renderCharts, renderPoincare,renderTrajectoryChart,resetZoom } from "./chart.js";
 import { buildPhases, parseBatchFile, classifyFiles } from "./fileParser.js";
 import { showError, hideError, renderSessionMeta, renderLegend, renderMetricCards, renderTable, switchTab, toggleDarkMode, getArtefactMethod, getThreshold, renderBatchTable, renderGroupSummaryTable, copyMethodsStatement, renderArtefactPanel, renderQualitySummary, showAPAReport, renderManifest } from "./ui.js";
-import { downloadCSV,downloadBatchCSV,downloadChart,generateMethodsStatement} from "./export.js";
+import { downloadCSV,downloadBatchCSV,downloadChart,generateMethodsStatement,downloadQualityCSV } from "./export.js";
 
 
 // ----- Get DOM elements -----

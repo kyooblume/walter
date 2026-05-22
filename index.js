@@ -5,7 +5,7 @@ import { getValidRows, calcMetrics,calculateDataQuality, calcFrequencyDomain } f
 import { renderCharts, renderPoincare,renderTrajectoryChart,resetZoom } from "./chart.js";
 import { buildPhases, parseBatchFile, classifyFiles } from "./fileParser.js";
 import { showError, hideError, renderSessionMeta, renderLegend, renderMetricCards, renderTable, switchTab, toggleDarkMode, getArtefactMethod, getThreshold, renderBatchTable, renderGroupSummaryTable, copyMethodsStatement, renderArtefactPanel, renderQualitySummary, showAPAReport, renderManifest } from "./ui.js";
-import { downloadCSV,downloadBatchCSV,downloadChart,generateMethodsStatement,downloadQualityCSV } from "./export.js";
+import { downloadCSV, downloadBatchCSV, downloadChart, generateMethodsStatement, downloadQualityCSV } from "./export.js";
 
 
 // ----- Get DOM elements -----
@@ -98,7 +98,8 @@ async function processManifest(manifest) {
 
   const method    = getArtefactMethod();
   const threshold = getThreshold();
-  const results   = [];
+  if(!appState.outputResults) appState.outputResults = [];
+  const results   = appState.outputResults;
   const errors    = [];
 
   // Filter out unmatched Duo files if the checkbox is ticked
@@ -109,6 +110,12 @@ async function processManifest(manifest) {
 
   for (let i = 0; i < sessions.length; i++) {
     const s = sessions[i];
+
+    const alreadyProcessed = results.find( r => r.ParticipantID === s.baseID);
+    if(alreadyProcessed){
+      continue
+    }
+
     progressEl.textContent = `Processing ${i + 1} of ${sessions.length}: ${s.baseID}...`;
 
     try {
@@ -142,10 +149,12 @@ async function processManifest(manifest) {
   if (errors.length > 0) showError(`Some files could not be processed: ${errors.join(' | ')}`);
   if (results.length > 0) {
     appState.outputResults = results;
-    document.getElementById('manifestPanel').style.display = 'none';
+
+    document.getElementById('manifestPanel').style.display = 'none'
+
     renderOutputTable(results);
-    renderGroupSummaryTable(results);
-    renderTrajectoryChart(results);
+    renderGroupSummaryTable(results)
+    renderTrajectoryChart(results)
     renderSessionTray();
   }
 }
@@ -393,51 +402,47 @@ function toggleChartSettings(){
   }
 }
 
-
-// ---- Session tray ----
-// Shows a compact list of loaded sessions during and after processing
-// Only visible when 2+ sessions are loaded
+// ---- Session Tray (Task 2.4) ----
+// Shows persistent list of loaded sessions during/after processing
+// Only visible when 2+ sessions loaded
 function renderSessionTray() {
-  const tray    = document.getElementById("sessionTray");
-  const trayList = document.getElementById("trayList");
+  const tray    = document.getElementById('sessionTray');
+  const trayList = document.getElementById('trayList');
   if (!tray || !trayList || !currentManifest) return;
 
   const sessions = currentManifest.sessions;
 
-  // Only show tray when 2 or more sessions are loaded
+  // Only show when 2+ sessions
   if (sessions.length < 2) {
-    tray.style.display = "none";
+    tray.style.display = 'none';
     return;
   }
 
-  tray.style.display = "block";
+  tray.style.display = 'block';
 
   trayList.innerHTML = sessions.map((s, i) => {
-    const isDuo     = s.kind === "duo-pair";
-    const isWarn    = s.kind === "duo-unmatched";
+    const isDuo     = s.kind === 'duo-pair';
+    const isWarn    = s.kind === 'duo-unmatched';
     const label     = isDuo ? `${s.baseID}.1 + ${s.baseID}.2` : s.baseID;
-    const typeLabel = isDuo ? "Duo pair" : isWarn ? `Duo — missing ${s.missingPair}` : "Solo";
+    const typeLabel = isDuo ? 'Duo pair' : isWarn ? `Duo — missing ${s.missingPair}` : 'Solo';
     const addPartner = isWarn
       ? `<button class="btn btn-sm" style="font-size:11px;padding:3px 8px;" onclick="document.getElementById('fileInput').click()">+ Add ${s.missingPair}</button>`
-      : "";
+      : '';
     return `<div class="tray-row" onclick="onTrayRowClick(${i})">
-      <span class="tray-dot ${isWarn ? "warn" : ""}"></span>
+      <span class="tray-dot ${isWarn ? 'warn' : ''}"></span>
       <span class="tray-id">${label}</span>
       <span class="tray-type">${typeLabel} ${addPartner}</span>
       <button class="tray-remove" onclick="event.stopPropagation(); removeTraySession(${i})">✕</button>
     </div>`;
-  }).join("");
+  }).join('');
 }
 
-// Called when user clicks a row in the session tray
 function onTrayRowClick(index) {
-  // Highlight the clicked row
-  document.querySelectorAll(".tray-row").forEach((r, i) => {
-    r.style.background = i === index ? "#E6F1FB" : "";
+  document.querySelectorAll('.tray-row').forEach((r, i) => {
+    r.style.background = i === index ? '#E6F1FB' : '';
   });
 }
 
-// Removes a session from the manifest and updates the output
 function removeTraySession(index) {
   if (!currentManifest) return;
   const removed = currentManifest.sessions[index];
@@ -451,7 +456,6 @@ function removeTraySession(index) {
 
   // Remove from manifest
   currentManifest.sessions.splice(index, 1);
-  currentManifest.rawFiles = currentManifest.rawFiles || [];
 
   // Re-render
   if (appState.outputResults && appState.outputResults.length > 0) {
@@ -499,7 +503,41 @@ function resetManifest() {
   document.getElementById('outputPanel').style.display    = 'none';
   if (document.getElementById('fileInput'))   document.getElementById('fileInput').value   = '';
   if (document.getElementById('folderInput')) document.getElementById('folderInput').value = '';
+
+
+window.removeManifestItem = (index) => {
+  if(!currentManifest) return;
 }
+
+const sessionToRemove = currentManifest.sessions[index];
+if(appState.outputResults){
+  appState.outputResults = appState.outputResults.filter(r => r.ParticipantID !== sessionToRemove.baseID);
+}
+
+currentManifest.sessions.splice(index,1);
+
+if(document.getElementById('manifestPanel'),style.display === 'block'){
+  window.renderManifest(currentManifest);
+}else{
+  if(appState.outputResults && appState.outputResults.length > 0){
+    renderOutputTable(appState.outputResults);
+    renderGroupSummaryTable(appState.outputResults);
+    renderTrajectoryChart(appState.outputResults);
+  } else{
+    resetManifest();
+  }
+}
+};
+
+window.removeDemographicItem = (index) => {
+  if(!currentManifest) return;
+  currentManifest.demographics.splice(index,3);
+  if(document.getElementById('manifestPanel').style.display === 'block'){
+    window.renderManifest(currentManifest);
+  }
+};
+
+
 
 window.toggleChartSettings = toggleChartSettings;
 window.switchTab = switchTab;
@@ -518,5 +556,6 @@ window.downloadChart = downloadChart;
 window.copyMethodsStatement = copyMethodsStatement;
 window.showAPAReport = showAPAReport;
 window.renderManifest = renderManifest;
+window.renderSessionTray = renderSessionTray;
 window.removeTraySession = removeTraySession;
 window.onTrayRowClick = onTrayRowClick;

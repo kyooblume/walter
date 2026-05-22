@@ -98,7 +98,8 @@ async function processManifest(manifest) {
 
   const method    = getArtefactMethod();
   const threshold = getThreshold();
-  const results   = [];
+  if(!appState.outputResults) appState.outputResults = [];
+  const results   = appState.outputResults;
   const errors    = [];
 
   // Filter out unmatched Duo files if the checkbox is ticked
@@ -109,6 +110,12 @@ async function processManifest(manifest) {
 
   for (let i = 0; i < sessions.length; i++) {
     const s = sessions[i];
+
+    const alreadyProcessed = results.find( r => r.ParticipantID === s.baseID);
+    if(alreadyProcessed){
+      continue
+    }
+
     progressEl.textContent = `Processing ${i + 1} of ${sessions.length}: ${s.baseID}...`;
 
     try {
@@ -142,7 +149,12 @@ async function processManifest(manifest) {
   if (errors.length > 0) showError(`Some files could not be processed: ${errors.join(' | ')}`);
   if (results.length > 0) {
     appState.outputResults = results;
+
+    document.getElementById('manifestPanel').style.display = 'none'
+
     renderOutputTable(results);
+    renderGroupSummaryTable(results)
+    renderTrajectoryChart(results)
   }
 }
 
@@ -424,7 +436,41 @@ function resetManifest() {
   document.getElementById('outputPanel').style.display    = 'none';
   if (document.getElementById('fileInput'))   document.getElementById('fileInput').value   = '';
   if (document.getElementById('folderInput')) document.getElementById('folderInput').value = '';
+
+
+window.removeManifestItem = (index) => {
+  if(!currentManifest) return;
 }
+
+const sessionToRemove = currentManifest.sessions[index];
+if(appState.outputResults){
+  appState.outputResults = appState.outputResults.filter(r => r.ParticipantID !== sessionToRemove.baseID);
+}
+
+currentManifest.sessions.splice(index,1);
+
+if(document.getElementById('manifestPanel'),style.display === 'block'){
+  window.renderManifest(currentManifest);
+}else{
+  if(appState.outputResults && appState.outputResults.length > 0){
+    renderOutputTable(appState.outputResults);
+    renderGroupSummaryTable(appState.outputResults);
+    renderTrajectoryChart(appState.outputResults);
+  } else{
+    resetManifest();
+  }
+}
+};
+
+window.removeDemographicItem = (index) => {
+  if(!currentManifest) return;
+  currentManifest.demographics.splice(index,3);
+  if(document.getElementById('manifestPanel').style.display === 'block'){
+    window.renderManifest(currentManifest);
+  }
+};
+
+
 
 window.toggleChartSettings = toggleChartSettings;
 window.switchTab = switchTab;

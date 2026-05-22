@@ -71,6 +71,24 @@
           <table id="outputTable"></table>
         </div>
       </div>
+
+      <div class = "card">
+        <div class = "card-header">
+          <span class = "card-title"> Group summary - mean/SD </span>
+        </div>
+        <div style = "overflow-x: auto;">
+          <table id = "groupSummaryTable"></table>
+        </div>
+      </div>
+
+      <div class = "card">
+        <div class = "card-header">
+          <span class = "card-title"> RMSSD trajectory -all participants </span>
+          <button class = "btn btn-sm" onclick = "downloadChart('trajectoryChart', 'walter_trajectory.png')"> Donwload PNG </button>
+        </div>
+        <div class = "chart-wrap"><canvas id = "trajectoryChart"> </canvas></div>
+      </div>
+
       <div style="text-align:center; margin-bottom:24px;">
         <button class="btn" onclick="resetManifest()">&#8617; Start again</button>
       </div>

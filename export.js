@@ -36,79 +36,23 @@ export function downloadChart(id, filename) {
   link.click();
 }
 
-export function downloadCSV() {
-  if (!appState.summaryData.session) return;
-  const metrics = [
-    { label: 'Beat count', key: 'count',    unit: 'beats' },
-    { label: 'Mean RR',    key: 'meanRR',   unit: 'ms'    },
-    { label: 'Mean HR',    key: 'meanHR',   unit: 'bpm'   },
-    { label: 'RMSSD',      key: 'rmssd',    unit: 'ms'    },
-    { label: 'SDNN',       key: 'sdnn',     unit: 'ms'    },
-    { label: 'pNN50',      key: 'pnn50',    unit: '%'     },
-    { label: 'Min RR',     key: 'minRR',    unit: 'ms'    },
-    { label: 'Max RR',     key: 'maxRR',    unit: 'ms'    },
-    { label: 'Duration',   key: 'duration', unit: 's'     },
-  ];
-  const methodsStmt = generateMethodsStatement(appState.summaryData.method, appState.summaryData.threshold);
-  let csv = `# ${methodsStmt}\n`;
+// Downloads the output results as a SPSS-ready CSV
+function downloadCSV() {
+  const results = appState.outputResults;
+  if (!results || results.length === 0) return;
 
-  // Add session notes as a comment line if the student has entered any
-  const notesEl = document.getElementById('sessionNotes');
-  const notes   = notesEl ? notesEl.value.trim() : '';
-  if (notes) csv += `# Notes: ${notes}\n`;
-  const phaseHeaders  = appState.summaryData.phases.map(p => p.label).join(',');
-
-  // Include change score headers if exactly 2 phases
-  const showChange    = appState.summaryData.phases.length === 2 &&
-                        appState.summaryData.phases[0].m &&
-                        appState.summaryData.phases[1].m;
-  const changeHeaders = showChange ? ',Change (abs),Change (%)' : '';
-  const sessionHeader = appState.summaryData.phases.length > 0 ? ',Full session' : '';
-
-  csv += `Metric,Unit,${phaseHeaders}${changeHeaders}${sessionHeader}\n`;
-
-  metrics.forEach(m => {
-    const phaseCells = appState.summaryData.phases.map(p => p.m ? p.m[m.key] : '').join(',');
-
-    // Calculate change scores for CSV
-    let changeCells = '';
-    if (showChange) {
-      const v1  = parseFloat(appState.summaryData.phases[0].m[m.key]);
-      const v2  = parseFloat(appState.summaryData.phases[1].m[m.key]);
-      const abs = v2 - v1;
-      const pct = v1 !== 0 ? (abs / v1) * 100 : 0;
-      const sign = abs > 0 ? '+' : '';
-      changeCells = `,${sign}${abs.toFixed(2)},${sign}${pct.toFixed(1)}%`;
-    }
-
-    const sessionCell = appState.summaryData.phases.length > 0
-      ? ',' + (appState.summaryData.session ? appState.summaryData.session[m.key] : '')
-      : '';
-    csv += `${m.label},${m.unit},${phaseCells}${changeCells}${sessionCell}\n`;
-  });
-  const blob = new Blob([csv], { type: 'text/csv' });
-  const link = document.createElement('a');
-  link.download = 'walter_summary.csv';
-  link.href     = URL.createObjectURL(blob);
-  link.click();
-}
-
-// Download the batch results as a SPSS-ready CSV
-export function downloadBatchCSV() {
-  if (appState.batchResults.length === 0) return;
-
-  const headers = Object.keys(appState.batchResults[0]);
-
-  // No comment lines — SPSS requires clean CSV with no leading rows
+  const headers = Object.keys(results[0]);
   let csv = headers.join(',') + '\n';
 
-  appState.batchResults.forEach(row => {
-    csv += headers.map(h => row[h] ?? '').join(',') + '\n';
-  });
+
+  results.forEach(row => {
+     csv += headers.map(h => row[h] ?? '').join(',') + '\n';
+     });
 
   const blob = new Blob([csv], { type: 'text/csv' });
   const link = document.createElement('a');
-  link.download = 'walter_batch_summary.csv';
+
+  link.download = 'walter_output.csv';
   link.href     = URL.createObjectURL(blob);
   link.click();
 }

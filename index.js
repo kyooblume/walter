@@ -111,7 +111,7 @@ async function processManifest(manifest) {
   for (let i = 0; i < sessions.length; i++) {
     const s = sessions[i];
 
-    const alreadyProcessed = results.find( r => r.ParticipantID === s.baseID);
+    const alreadyProcessed = results.find( r => r.ParticipantID === s.baseID || r.PairID === s.baseID);
     if(alreadyProcessed){
       continue
     }
@@ -119,28 +119,45 @@ async function processManifest(manifest) {
     progressEl.textContent = `Processing ${i + 1} of ${sessions.length}: ${s.baseID}...`;
 
     try {
-      let row = null;
+      let rowsToAdd = [];
 
       if (s.kind === 'solo' || s.kind === 'duo-unmatched') {
         // Single file — use existing parseBatchFile
-        row = await parseBatchFile(s.file, method, threshold);
-        if (row) row.ParticipantID = s.baseID;
+        const row = await parseBatchFile(s.file || s.file1, method, threshold);
+        if (row){
+
+        delete row.ParticipantID;
+        const orderedRow = {
+          ParticipantID: s.kind === 'solo' ? s.baseID : (s.meta?.duoSuffix ? '.' + s.meta.duoSuffix:'')),
+          PairID: '',
+          IsDuoPaired: false,
+          ...row
+        };
+        rowsToAdd.push(orderedRow)
+        }
 
       } else if (s.kind === 'duo-pair') {
         // Duo pair — process both files, prefix D1_/D2_ to distinguish sensors
         const row1 = await parseBatchFile(s.file1, method, threshold);
         const row2 = await parseBatchFile(s.file2, method, threshold);
         if (row1 && row2) {
-          row = { ParticipantID: s.baseID };
-          Object.keys(row1).forEach(k => { if (k !== 'ParticipantID') row[`D1_${k}`] = row1[k]; });
-          Object.keys(row2).forEach(k => { if (k !== 'ParticipantID') row[`D2_${k}`] = row2[k]; });
+          delete row1.ParticipantID;
+          delete row2.ParticipantID;
+          const orderedRow1 = { ParticipantID: `${s.baseID},1`, PairID: s.baseID, IsDuoPaired: true, ...row1};
+          const orderedRow1 = { ParticipantID: `${s.baseID},1`, PairID: s.baseID, IsDuoPaired: true, ...row2};
+          rowsToAdd.push(orderedRow1,orderedRow2);
         }
       }
 
-      if (row) results.push(row);
-      else errors.push(`${s.baseID}: could not process`);
-
-    } catch (err) {
+      if(rowsToAdd.length > 0){
+        results.push(... rowsToAdd)
+      }
+      else{
+      errors.push(`${s.baseID}: could not process`);
+      }
+      
+    } 
+    catch (err) {
       errors.push(`${s.baseID}: ${err.message}`);
     }
   }
@@ -480,20 +497,6 @@ function renderOutputTable(rows) {
     ).join('')}</tbody>`;
 }
 
-// Downloads the output results as a SPSS-ready CSV
-function downloadOutputCSV() {
-  const results = appState.outputResults;
-  if (!results || results.length === 0) return;
-  const headers = Object.keys(results[0]);
-  let csv = headers.join(',') + '\n';
-  results.forEach(row => { csv += headers.map(h => row[h] ?? '').join(',') + '\n'; });
-  const blob = new Blob([csv], { type: 'text/csv' });
-  const link = document.createElement('a');
-  link.download = 'walter_output.csv';
-  link.href     = URL.createObjectURL(blob);
-  link.click();
-}
-
 // Resets everything back to the drop zone
 function resetManifest() {
   currentManifest = null;
@@ -507,7 +510,7 @@ function resetManifest() {
 
 window.removeManifestItem = (index) => {
   if(!currentManifest) return;
-}
+
 
 const sessionToRemove = currentManifest.sessions[index];
 if(appState.outputResults){
@@ -536,6 +539,7 @@ window.removeDemographicItem = (index) => {
     window.renderManifest(currentManifest);
   }
 };
+};
 
 
 
@@ -547,7 +551,6 @@ window.resetBatch = resetBatch;
 window.resetManifest = resetManifest;
 window.downloadCSV = downloadCSV;
 window.downloadBatchCSV = downloadBatchCSV;
-window.downloadQualityCSV = downloadQualityCSV;
 window.downloadOutputCSV = downloadOutputCSV;
 window.updatePhaseLabel = updatePhaseLabel;
 window.onSettingsChange = onSettingsChange;

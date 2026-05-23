@@ -72,7 +72,7 @@
         <div class="card-header">
           <span class="card-title">Results — all participants</span>
           <div style="display:flex; gap:8px;">
-            <button class="btn btn-sm" id="btnDownloadOutput" onclick="downloadOutputCSV()">Download CSV (SPSS-ready)</button>
+            <button class="btn btn-sm" id="btnDownloadOutput" onclick="downloadCSV()">Download CSV (SPSS-ready)</button>
           </div>
         </div>
         <div id="outputProgress" style="font-size:13px; color:#5F5E5A; margin-bottom:12px; display:none;"></div>
@@ -199,17 +199,7 @@
         style = "width: 100%; font-size: 13px; padding: 10px; border:1px solid lightgray; border-radius: 6px; resize:vertical; background: whitesmoke; color:black; line-height: 1.5; min-height: 120px; font-family: inherit;">
       </textarea>
       </div>
-
-      <div class="card">
-        <div class="card-header">
-          <span class="card-title">Summary table</span>
-          <button class="btn btn-sm" onclick="downloadCSV()">Download CSV</button>
-        </div>
-        <div style="overflow-x:auto">
-          <table id="summaryTable"></table>
-        </div>
-      </div>
-
+      
       <div style="text-align:center; margin-top:24px;">
         <button class="btn" onclick="resetApp()">&#8617; Upload another file</button>
       </div>

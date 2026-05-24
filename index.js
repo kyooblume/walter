@@ -128,7 +128,7 @@ async function processManifest(manifest) {
 
         delete row.ParticipantID;
         const orderedRow = {
-          ParticipantID: s.kind === 'solo' ? s.baseID : (s.meta?.duoSuffix ? '.' + s.meta.duoSuffix:'')),
+          ParticipantID: s.kind === 'solo' ? s.baseID : (s.meta?.duoSuffix ? '.' + s.meta.duoSuffix:''),
           PairID: '',
           IsDuoPaired: false,
           ...row

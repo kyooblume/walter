@@ -12,5 +12,8 @@ export const appState = {
  parsedAllValid: null, // Stores all valid rows across all phases // Chart.js instance for the Poincaré plot
  summaryData: [],
  phaseLabels: {},
- batchResults: []
+ outputResults: [],
+ batchResults: [],
+ demographics: new Map(),
+ demographicFields: ['Age', 'Gender']
 };

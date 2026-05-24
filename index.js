@@ -56,24 +56,45 @@ if(dropZone){
   });
 };
 
-async function processIncomingFiles(files) {
+async function processIncomingFiles(files){
   const csvFiles = files.filter(f => f.name.toLowerCase().endsWith('.csv'));
 
-  if (csvFiles.length === 0) {
+  if(csvFiles.length === 0){
     alert("No CSV files found, Try again");
     return;
   }
 
-  // Merge with any files already in the manifest (incremental adding)
   const existingFiles = currentManifest ? currentManifest.rawFiles : [];
-  const allFiles      = [...existingFiles, ...csvFiles];
+  const allFiles = [...existingFiles, ...csvFiles];
 
-  // Classify files into solo / duo-pair / duo-unmatched / demographics
-  const manifest    = await classifyFiles(allFiles);
+  const manifest = await classifyFiles(allFiles);
   manifest.rawFiles = allFiles;
-  currentManifest   = manifest;
+  currentManifest = manifest;
 
-  // Show the manifest panel so the user can review before processing
+  if(manifest.demographics.length > 0){
+    for(const file of manifest.demographics){
+      Papa.parse(file,{
+        header: true,
+        skipEmptyLines: true,
+        complete: (res) => {
+          res.data.forEach(row => {
+            if(row.ParticipantID) {
+              const id = row.ParticipantID.trim();
+
+              const existing = appState.demographics.get(id) || {};
+              appState.demographics.set(id, { ... existing, ...row });
+
+              Object.keys(row).forEach(key => {
+                if(key !== 'ParticipantID' && !appState.demographicsFields.includes(key)){
+                  appState.demographicsFields.push(key)
+                }
+              })
+            }
+          })
+        }
+      })
+    }
+  }
   renderManifest(manifest);
 }
 
@@ -128,7 +149,7 @@ async function processManifest(manifest) {
 
         delete row.ParticipantID;
         const orderedRow = {
-          ParticipantID: s.kind === 'solo' ? s.baseID : (s.meta?.duoSuffix ? '.' + s.meta.duoSuffix : ''),
+          ParticipantID: s.kind === 'solo' ? s.baseID : (s.baseID + (s.meta?.duoSuffix ? '.' + s.meta.duoSuffix : '')),
           PairID: '',
           IsDuoPaired: false,
           ...row
@@ -174,147 +195,6 @@ async function processManifest(manifest) {
     renderTrajectoryChart(results)
     renderSessionTray();
   }
-}
-
-
-
-
-// Read and validate the uploaded CSV file using Papa Parse
-function processFile(file) {
-  hideError();
-  if (!file.name.endsWith('.csv')) { showError('Please upload a CSV file.'); return; }
-
-  Papa.parse(file, {
-    header: true,
-    skipEmptyLines: true,
-    complete: function(res) {
-      const allRows = res.data;
-      const cols = res.meta.fields || [];
-
-      // Check required columns are present
-      if (!cols.includes('rr_ms') || !cols.includes('timestamp_ms')) {
-        showError('Required columns missing. Make sure this is a Harvey CSV file.');
-        return;
-      }
-       //give info if rr_ms is more than 300 but less than 2000 
-      const validRows = allRows.filter(row => {
-        const rr = parseFloat(row.rr_ms);
-        return rr >= 300 && rr <= 2000;
-      });
-
-      // Require at least 10 valid beats to calculate meaningful HRV
-      if (validRows.length < 10) {
-        showError('Not enough valid RR intervals (minimum 10 required). Check your file.');
-        return;
-      }
-
-      const phases = buildPhases(allRows);
-      renderResults(file.name,allRows,validRows, phases);
-    },
-    error: function() { showError('Could not read the file. Make sure it is a valid CSV.'); }
-  });
-}
-
-// Process all uploaded files one by one
-async function processBatchFiles(files) {
-  appState.batchResults = [];
-  const progressEl = document.getElementById('batchProgress');
-  const errorEl    = document.getElementById('batchError');
-  const countEl    = document.getElementById('batchFileCount');
-
-  progressEl.style.display = 'block';
-  errorEl.style.display    = 'none';
-  countEl.textContent      = `${files.length} file${files.length > 1 ? 's' : ''} selected`;
-
-  const method    = getArtefactMethod();
-  const threshold = getThreshold();
-  const errors    = [];
-
-  for (let i = 0; i < files.length; i++) {
-    const file = files[i];
-    progressEl.textContent = `Processing ${i + 1} of ${files.length}: ${file.name}...`;
-
-    try {
-      const result = await parseBatchFile(file, method, threshold);
-      if (result) {
-        appState.batchResults.push(result);
-      } else {
-        errors.push(`${file.name}: could not process`);
-      }
-    } catch (err) {
-      errors.push(`${file.name}: ${err.message}`);
-    }
-  }
-
-  progressEl.style.display = 'none';
-
-  if (errors.length > 0) {
-    errorEl.style.display   = 'block';
-    errorEl.textContent     = `Errors: ${errors.join(' | ')}`;
-  }
-
-  if (appState.batchResults.length > 0) {
-    renderBatchTable(appState.batchResults);
-    renderGroupVisualisation(appState.batchResults);
-    document.getElementById('batchResults').style.display = 'block';
-  }
-}
-
-// ============================================================
-// Main render entry point — called after file upload and after settings changes
-// ============================================================
-function renderResults(fileName,allRows,allValid, phases) {
-  uploadCard.style.display = 'none';
-  results.style.display    = 'block';
-
-  appState.parsedAllValid = allValid;
-  appState.parsedPhases = phases;
-  appState.summaryData.allRows = allRows
-
-  const method    = getArtefactMethod();
-  const threshold = getThreshold();
-
-  const sessionMetrics = calcMetrics(allValid, method, threshold);
-  const phaseMetrics   = phases.map(p => {
-    const validRows = getValidRows(p.rows);
-    return { label: p.label, m: calcMetrics(validRows, method, threshold) };
-  });
-
-  // Calculate frequency domain metrics per phase and full session
-  const sessionFreq = calcFrequencyDomain(allValid);
-  const phaseFreq   = phases.map(p => ({
-    label: p.label,
-    f:     calcFrequencyDomain(getValidRows(p.rows))
-  }));
-
-  renderSessionMeta(fileName,sessionMetrics)
-
-  const phaseQuality = phases.map((p,i) => {
-    const validRows = getValidRows(p.rows);
-    const metrics = phaseMetrics[i].m;
-    return{
-        label: p.label,
-        q: calculateDataQuality(p.rows,validRows, metrics)
-    };
-  });
-
-  renderLegend(phases);
-  renderArtefactPanel(method, threshold);
-  renderMetricCards(sessionMetrics, phaseMetrics);
-  renderQualitySummary(phaseQuality);
-  renderCharts(allValid, phases);
-  renderPoincare(phases);
-  renderTable(sessionMetrics, phaseMetrics, sessionFreq, phaseFreq);
-
-  appState.summaryData = { session: sessionMetrics, phases: phaseMetrics, method, threshold, quality: phaseQuality, fileName, allRows, allValid, phasesRaw: phases };
-}
-
-// Called after batch processing completes
-function renderGroupVisualisation(rows) {
-  if (!rows || rows.length === 0) return;
-
-  renderGroupSummaryTable(rows);
-  renderTrajectoryChart(rows);
 }
 
 // Called whenever a setting changes — recalculates metrics and redraws table

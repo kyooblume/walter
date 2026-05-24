@@ -143,9 +143,9 @@ async function processManifest(manifest) {
         if (row1 && row2) {
           delete row1.ParticipantID;
           delete row2.ParticipantID;
-          const orderedRow1 = { ParticipantID: `${s.baseID},1`, PairID: s.baseID, IsDuoPaired: true, ...row1};
-          const orderedRow1 = { ParticipantID: `${s.baseID},1`, PairID: s.baseID, IsDuoPaired: true, ...row2};
-          rowsToAdd.push(orderedRow1,orderedRow2);
+          const orderedRow1 = { ParticipantID: `${s.baseID}.1`, PairID: s.baseID, IsDuoPaired: true, ...row1};
+          const orderedRow2 = { ParticipantID: `${s.baseID}.2`, PairID: s.baseID, IsDuoPaired: true, ...row2};
+          rowsToAdd.push(orderedRow1, orderedRow2);
         }
       }
 
@@ -519,7 +519,7 @@ if(appState.outputResults){
 
 currentManifest.sessions.splice(index,1);
 
-if(document.getElementById('manifestPanel'),style.display === 'block'){
+if(document.getElementById('manifestPanel').style.display === 'block'){
   window.renderManifest(currentManifest);
 }else{
   if(appState.outputResults && appState.outputResults.length > 0){
@@ -534,7 +534,7 @@ if(document.getElementById('manifestPanel'),style.display === 'block'){
 
 window.removeDemographicItem = (index) => {
   if(!currentManifest) return;
-  currentManifest.demographics.splice(index,3);
+  currentManifest.demographics.splice(index, 1);
   if(document.getElementById('manifestPanel').style.display === 'block'){
     window.renderManifest(currentManifest);
   }

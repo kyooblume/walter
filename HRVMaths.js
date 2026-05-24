@@ -216,3 +216,58 @@ export function calcFrequencyDomain(rows) {
     warning: null
   };
 }
+
+// ============================================================
+// Poincaré Analysis: SD1 and SD2
+// Calculates the standard deviations of the scatter plot axes
+// SD1 = short-term variability (perpendicular to identity line)
+// SD2 = long-term variability (parallel to identity line)
+// ============================================================
+
+export function calcPoincareSD(rows) {
+  const rr = getValidRows(rows).map(r => parseFloat(r.rr_ms));
+  
+  if (rr.length < 2) return { sd1: null, sd2: null, sd1_sd2_ratio: null };
+
+  // Create (RR[n], RR[n+1]) pairs
+  const pairs = [];
+  for (let i = 0; i < rr.length - 1; i++) {
+    pairs.push({ x: rr[i], y: rr[i + 1] });
+  }
+
+  // Step 1: Calculate successive differences
+  // x = RR[n]
+  // y = RR[n+1]
+  // d1 = (y - x) / sqrt(2)   — perpendicular to identity line
+  // d2 = (x + y) / sqrt(2)   — parallel to identity line
+
+  const d1Values = [];
+  const d2Values = [];
+
+  pairs.forEach(p => {
+    const d1 = (p.y - p.x) / Math.sqrt(2);
+    const d2 = (p.x + p.y) / Math.sqrt(2);
+    d1Values.push(d1);
+    d2Values.push(d2);
+  });
+
+  // Step 2: Calculate standard deviations
+  const meanD1 = d1Values.reduce((a, b) => a + b, 0) / d1Values.length;
+  const meanD2 = d2Values.reduce((a, b) => a + b, 0) / d2Values.length;
+
+  const sd1 = Math.sqrt(
+    d1Values.map(d => (d - meanD1) ** 2).reduce((a, b) => a + b, 0) / d1Values.length
+  );
+
+  const sd2 = Math.sqrt(
+    d2Values.map(d => (d - meanD2) ** 2).reduce((a, b) => a + b, 0) / d2Values.length
+  );
+
+  const ratio = sd2 > 0 ? (sd1 / sd2).toFixed(3) : '—';
+
+  return {
+    sd1: sd1.toFixed(2),
+    sd2: sd2.toFixed(2),
+    sd1_sd2_ratio: ratio
+  };
+}

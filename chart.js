@@ -1,5 +1,5 @@
 import { PHASE_COLORS, appState } from "./config.js";
-import { handleArtefacts,getValidRows } from "./HRVMaths.js";
+import { handleArtefacts,getValidRows, calcPoincareSD } from "./HRVMaths.js";
 import { getArtefactMethod, getThreshold } from "./ui.js";
 
 
@@ -218,6 +218,9 @@ export function renderPoincare(phases) {
       points.push({ x: rr[j], y: rr[j + 1] });
     }
 
+    // Calculate SD1 and SD2 for this phase
+    const sd = calcPoincareSD(p.rows);
+
     return {
       label:           p.label,
       data:            points,
@@ -225,6 +228,9 @@ export function renderPoincare(phases) {
       borderColor:     c.border,
       borderWidth:     0.5,
       pointRadius:     3,
+      sd1:             sd.sd1,
+      sd2:             sd.sd2,
+      ratio:           sd.sd1_sd2_ratio,
     };
   });
 
@@ -240,7 +246,13 @@ export function renderPoincare(phases) {
         legend: { display: true, position: 'top' },
         tooltip: {
           callbacks: {
-            label: ctx => `RR[n]: ${ctx.parsed.x.toFixed(0)}ms, RR[n+1]: ${ctx.parsed.y.toFixed(0)}ms`
+            label: ctx => {
+              const dataset = ctx.dataset;
+              return [
+                `RR[n]: ${ctx.parsed.x.toFixed(0)}ms, RR[n+1]: ${ctx.parsed.y.toFixed(0)}ms`,
+                `SD1: ${dataset.sd1}ms · SD2: ${dataset.sd2}ms · Ratio: ${dataset.ratio}`
+              ];
+            }
           }
         }
       },
@@ -258,6 +270,19 @@ export function renderPoincare(phases) {
       }
     }
   });
+
+  // Add SD1/SD2 legend below the chart
+  const legendEl = document.createElement('div');
+  legendEl.id = 'poincareSDLegend';
+  legendEl.style.cssText = 'font-size:12px; color:#5F5E5A; margin-top:10px; line-height:1.6;';
+  legendEl.innerHTML = datasets.map(d => 
+    `<div><strong>${d.label}:</strong> SD1 = ${d.sd1}ms, SD2 = ${d.sd2}ms, SD1/SD2 = ${d.ratio}</div>`
+  ).join('');
+
+  const canvasParent = document.getElementById('poincareChart').parentElement;
+  const existing = document.getElementById('poincareSDLegend');
+  if (existing) existing.remove();
+  canvasParent.appendChild(legendEl);
 
   document.getElementById('poincareChart').addEventListener('dblclick', () => poincareChartInst.resetZoom())
 

@@ -37,7 +37,7 @@ export function downloadChart(id, filename) {
 }
 
 // Downloads the output results as a SPSS-ready CSV
-function downloadCSV() {
+export function downloadCSV() {
   const results = appState.outputResults;
   if (!results || results.length === 0) return;
 

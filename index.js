@@ -5,7 +5,7 @@ import { getValidRows, calcMetrics,calculateDataQuality, calcFrequencyDomain } f
 import { renderCharts, renderPoincare,renderTrajectoryChart,resetZoom } from "./chart.js";
 import { buildPhases, parseBatchFile, classifyFiles } from "./fileParser.js";
 import { showError, hideError, renderSessionMeta, renderLegend, renderMetricCards, renderTable, switchTab, toggleDarkMode, getArtefactMethod, getThreshold, renderBatchTable, renderGroupSummaryTable, copyMethodsStatement, renderArtefactPanel, renderQualitySummary, showAPAReport, renderManifest } from "./ui.js";
-import { downloadCSV, downloadBatchCSV, downloadChart, generateMethodsStatement, downloadQualityCSV } from "./export.js";
+import { downloadChart, generateMethodsStatement, downloadQualityCSV, downloadCSV } from "./export.js";
 
 
 // ----- Get DOM elements -----
@@ -128,7 +128,7 @@ async function processManifest(manifest) {
 
         delete row.ParticipantID;
         const orderedRow = {
-          ParticipantID: s.kind === 'solo' ? s.baseID : (s.meta?.duoSuffix ? '.' + s.meta.duoSuffix:''),
+          ParticipantID: s.kind === 'solo' ? s.baseID : (s.meta?.duoSuffix ? '.' + s.meta.duoSuffix : ''),
           PairID: '',
           IsDuoPaired: false,
           ...row
@@ -549,13 +549,8 @@ window.toggleDarkMode = toggleDarkMode;
 window.resetApp = resetApp;
 window.resetBatch = resetBatch;
 window.resetManifest = resetManifest;
-window.downloadCSV = downloadCSV;
-window.downloadBatchCSV = downloadBatchCSV;
-window.downloadOutputCSV = downloadOutputCSV;
-window.updatePhaseLabel = updatePhaseLabel;
-window.onSettingsChange = onSettingsChange;
-window.resetZoom = resetZoom;
 window.downloadChart = downloadChart;
+window.downloadCSV = downloadCSV;
 window.copyMethodsStatement = copyMethodsStatement;
 window.showAPAReport = showAPAReport;
 window.renderManifest = renderManifest;

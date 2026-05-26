@@ -486,7 +486,7 @@ export function buildDemographicsHTML(participantID){
     html += ` 
     
     <label style = "display:flex; flex-direction: column; gap: 4px; font-family: 'Georgia', serif;">
-    <span style = "font-size:11px; color: saddlebrown; font-weight: 600; text-transform: uppercase;">${field}</spaan>
+    <span style = "font-size:11px; color: saddlebrown; font-weight: 600; text-transform: uppercase;">${field}</span>
     <input type = "text" value = "${val}"
     style = "width: 90px; font-size: 13px; padding:4px 6px; border: 1px solid gray; border-radius:4px; background:white;"
     onchange = "updateDemographicValue('${participantID}', '${field}',this.value)">
@@ -494,7 +494,7 @@ export function buildDemographicsHTML(participantID){
     `;
   });
 
-  html += `<button class = "btn btn-sm" style = "font-size: 11px; height: fit-content; align-self: flex-end; background:white; border-color:tan; color: saddlebrown"; onclick = "addDemograaphicField()"> + Add Field>`;
+  html += `<button class = "btn btn-sm" style = "font-size: 11px; height: fit-content; align-self: flex-end; background:white; border-color:tan; color: saddlebrown;" onclick = "addDemographicField()">+ Add Field</button>`;
   html += '</div>';
   return html;
 }
@@ -506,7 +506,7 @@ export function renderManifest(manifest){
   const listEl = document.getElementById('manifestList');
   const warnEl = document.getElementById('manifestWarnings');
 
-  warnEl.innerHtML = manifest.warnings.length > 0 ? manifest.warnings.map(w => '${w}').join('<br>') : '';
+  warnEl.innerHTML = manifest.warnings.length > 0 ? manifest.warnings.map(w => `${w}`).join('<br>') : '';
 
   let html = '<div style = "display: flex; flex-direction:column; gap:16px;">';
 
@@ -522,7 +522,7 @@ export function renderManifest(manifest){
     <div style = "border: 1px solid gray; border-radius: 6px; padding: 12px; background:white;">
     <div style = "display: flex; justify-content: space-between; align-items: center;">
     <div style = "display: flex; align-items: center; gap: 12px;">
-    <strong style = "font-size: 14px; color: black;"${name}</strong>
+    <strong style = "font-size: 14px; color: black;">${name}</strong>
     <span style = "font-size: 12px; color:gray;">${type}</span>
     </div>
     <button class = "btn btn-sm" onclick = "removeManifestItem(${index})"> Remove</button>

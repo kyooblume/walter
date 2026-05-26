@@ -12,7 +12,7 @@ import { downloadChart, generateMethodsStatement, downloadQualityCSV, downloadCS
 const dropZone    = document.getElementById('dropZone');
 const folderInput = document.getElementById('folderInput');
 const fileInput   = document.getElementById('fileInput');
-const uploadCard  = document.getElementById('uploadCard');
+const uploadCard  = dropZone; // dropZone doubles as the upload card — no separate #uploadCard in HTML
 const errorBox    = document.getElementById('errorBox');
 const results     = document.getElementById('results');
 
@@ -20,8 +20,8 @@ const results     = document.getElementById('results');
 let currentManifest = null;
 
 // Trigger file processing when user selects a file via the input
-if(window.Chart.ChartAnnotation){
-  chart.register(window.ChartAnnotation);
+if(window.Chart && window.ChartAnnotation){
+  Chart.register(window.ChartAnnotation);
 }
 
 fileInput.addEventListener('change', (event) => {
@@ -599,7 +599,7 @@ function resetManifest() {
   document.getElementById('outputPanel').style.display    = 'none';
   if (document.getElementById('fileInput'))   document.getElementById('fileInput').value   = '';
   if (document.getElementById('folderInput')) document.getElementById('folderInput').value = '';
-
+}
 
 window.removeManifestItem = (index) => {
   if(!currentManifest) return;

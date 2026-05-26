@@ -4,7 +4,7 @@ import { appState } from "./config.js";
 import { getValidRows, calcMetrics,calculateDataQuality, calcFrequencyDomain } from "./HRVMaths.js";
 import { renderCharts, renderPoincare,renderTrajectoryChart,resetZoom } from "./chart.js";
 import { buildPhases, parseBatchFile, classifyFiles } from "./fileParser.js";
-import { showError, hideError, renderSessionMeta, renderLegend, renderMetricCards, renderTable, switchTab, toggleDarkMode, getArtefactMethod, getThreshold, renderBatchTable, renderGroupSummaryTable, copyMethodsStatement, renderArtefactPanel, renderQualitySummary, showAPAReport, renderManifest } from "./ui.js";
+import { showError, hideError, renderSessionMeta, renderLegend, renderMetricCards, renderTable, switchTab, toggleDarkMode, getArtefactMethod, getThreshold, renderBatchTable, renderGroupSummaryTable, copyMethodsStatement, renderArtefactPanel, renderQualitySummary, showAPAReport, renderManifest,buildDemographicsHTML } from "./ui.js";
 import { downloadChart, generateMethodsStatement, downloadQualityCSV, downloadCSV } from "./export.js";
 
 
@@ -73,6 +73,31 @@ async function processIncomingFiles(files) {
   manifest.rawFiles = allFiles;
   currentManifest   = manifest;
 
+
+  if(manifest.demographics.length > 0){
+    for(const file of manifest.demographics){
+         Papa.parse(file, {
+          skipEmptyLines:true,
+          complete: (res) => {
+            res.data.forEach(row => {
+              if (row.ParticipantID) {
+                const id = row.ParticipantID.trim();
+
+                const existing = appState.demographics.get(id) || {};
+                appState.demographics.set(id, { ...existing, ...row });
+
+                Object.keys(row).forEach(key => {
+                  if(key !== 'ParticipantID' && !appState.demographicFields.includes(key))
+                    appState.demographicFields.push(key);
+                }
+              )
+              }
+            })
+          }
+         })
+    }
+  }
+
   // Show the manifest panel so the user can review before processing
   renderManifest(manifest);
 }
@@ -127,10 +152,12 @@ async function processManifest(manifest) {
         if (row){
 
         delete row.ParticipantID;
+        const demogs = appState.demographics.get(s.baseID) || {};
         const orderedRow = {
           ParticipantID: s.kind === 'solo' ? s.baseID : (s.meta?.duoSuffix ? '.' + s.meta.duoSuffix : ''),
           PairID: '',
           IsDuoPaired: false,
+          ...demogs,
           ...row
         };
         rowsToAdd.push(orderedRow)
@@ -143,6 +170,7 @@ async function processManifest(manifest) {
         if (row1 && row2) {
           delete row1.ParticipantID;
           delete row2.ParticipantID;
+          const demogs = appState.demographics.get(s.baseID) || {};
           const orderedRow1 = { ParticipantID: `${s.baseID}.1`, PairID: s.baseID, IsDuoPaired: true, ...row1};
           const orderedRow2 = { ParticipantID: `${s.baseID}.2`, PairID: s.baseID, IsDuoPaired: true, ...row2};
           rowsToAdd.push(orderedRow1, orderedRow2);
@@ -485,17 +513,38 @@ function renderSessionTray() {
     const isWarn    = s.kind === 'duo-unmatched';
     const label     = isDuo ? `${s.baseID}.1 + ${s.baseID}.2` : s.baseID;
     const typeLabel = isDuo ? 'Duo pair' : isWarn ? `Duo — missing ${s.missingPair}` : 'Solo';
-    const addPartner = isWarn
-      ? `<button class="btn btn-sm" style="font-size:11px;padding:3px 8px;" onclick="document.getElementById('fileInput').click()">+ Add ${s.missingPair}</button>`
-      : '';
-    return `<div class="tray-row" onclick="onTrayRowClick(${i})">
+
+    return
+     `<div class="tray-row" style= "flex-direction:column; align-items:stretch; cursor:default; padding: 12px 0;">
+     <div style = "display: flex; align-items: center; gap:8px; cursor:pointer; width:100%;" onclick="onTrayRowClick(${i})">
       <span class="tray-dot ${isWarn ? 'warn' : ''}"></span>
       <span class="tray-id">${label}</span>
-      <span class="tray-type">${typeLabel} ${addPartner}</span>
+      <span class="tray-type">${typeLabel}</span>
       <button class="tray-remove" onclick="event.stopPropagation(); removeTraySession(${i})">✕</button>
     </div>`;
   }).join('');
 }
+
+window.updateDemographicValue = (participantID, field, value) => {
+  const existing = appState.demographics.get(participantID) || {};
+  existing[field] = value;
+  appState.demographics.set(participantID,existing);
+};
+
+window.addDemographicField = () => {
+  const newField = prompt("Enter new Demographic column name ( e.g., Condition, Group):");
+  if(newField && newField.trim() !== ""){
+    const fieldName = newField.trim();
+    if(!appState.demographicFields.includes(fieldName)){
+      appState.demographicFields.push(fieldName);
+      if(document.getElementById('manifestPanel').style.display === 'block'){
+        window.renderManifest(currentManifest);
+      } else{
+        renderSessionTray();
+      }
+    }
+  }
+};
 
 function onTrayRowClick(index) {
   document.querySelectorAll('.tray-row').forEach((r, i) => {

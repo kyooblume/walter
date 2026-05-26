@@ -522,15 +522,17 @@ export function renderManifest(manifest){
     <div style = "border: 1px solid gray; border-radius: 6px; padding: 12px; background:white;">
     <div style = "display: flex; justify-content: space-between; align-items: center;">
     <div style = "display: flex; align-items: center; gap: 12px;">
-    <div style = "font-size: 14px; color: black;"${name}</strong>
+    <strong style = "font-size: 14px; color: black;"${name}</strong>
     <span style = "font-size: 12px; color:gray;">${type}</span>
     </div>
     <button class = "btn btn-sm" onclick = "removeManifestItem(${index})"> Remove</button>
+    </div>
+    ${buildDemographicsHTML(s.baseID)}
     </div>`;
     
   });
 
-  manifest.demographics.forEach(d,index) => {
+  manifest.demographics.forEach((d,index) => {
     html += `
     
     <div style = "border: 1px dashed green; border-radius:6px; padding: 12px; background: honeydew; display: flex; justify-content: space-between; align-items:center;">
@@ -540,7 +542,7 @@ export function renderManifest(manifest){
     </div>
     <button class = "btn btn-sm" style = "border-color: lightgreen; color: darkgreen; background:white;" onclick = "removeDemographicItem(${index})"> Remove </button>
     </div>`;
-  };
+  });
 
   html += '</div>';
   listEl.innerHTML = html;

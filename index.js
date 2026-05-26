@@ -77,6 +77,7 @@ async function processIncomingFiles(files) {
   if(manifest.demographics.length > 0){
     for(const file of manifest.demographics){
          Papa.parse(file, {
+          header: true,
           skipEmptyLines:true,
           complete: (res) => {
             res.data.forEach(row => {
@@ -154,7 +155,7 @@ async function processManifest(manifest) {
         delete row.ParticipantID;
         const demogs = appState.demographics.get(s.baseID) || {};
         const orderedRow = {
-          ParticipantID: s.kind === 'solo' ? s.baseID : (s.meta?.duoSuffix ? '.' + s.meta.duoSuffix : ''),
+          ParticipantID: s.kind === 'solo' ? s.baseID : (s.baseID + (s.meta?.duoSuffix ? '.' + s.meta.duoSuffix : '')),
           PairID: '',
           IsDuoPaired: false,
           ...demogs,
@@ -514,8 +515,8 @@ function renderSessionTray() {
     const label     = isDuo ? `${s.baseID}.1 + ${s.baseID}.2` : s.baseID;
     const typeLabel = isDuo ? 'Duo pair' : isWarn ? `Duo — missing ${s.missingPair}` : 'Solo';
 
-    return
-     `<div class="tray-row" style= "flex-direction:column; align-items:stretch; cursor:default; padding: 12px 0;">
+    return `
+    <div class="tray-row" style= "flex-direction:column; align-items:stretch; cursor:default; padding: 12px 0;">
      <div style = "display: flex; align-items: center; gap:8px; cursor:pointer; width:100%;" onclick="onTrayRowClick(${i})">
       <span class="tray-dot ${isWarn ? 'warn' : ''}"></span>
       <span class="tray-id">${label}</span>
@@ -630,7 +631,6 @@ window.removeDemographicItem = (index) => {
   if(document.getElementById('manifestPanel').style.display === 'block'){
     window.renderManifest(currentManifest);
   }
-};
 };
 
 

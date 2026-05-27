@@ -1,7 +1,7 @@
 
 
 import { appState } from "./config.js";
-import { getValidRows, calcMetrics,calculateDataQuality, calcFrequencyDomain } from "./HRVMaths.js";
+import { getValidRows, calcMetrics,calculateDataQuality, calcFrequencyDomain, calcSynchrony } from "./HRVMaths.js";
 import { renderCharts, renderPoincare, renderTrajectoryChart, renderHistogram, renderRmssdOverTime, renderAccelerometer, resetZoom,applyAPA7Style } from "./chart.js";
 import { buildPhases, parseBatchFile, classifyFiles } from "./fileParser.js";
 import { showError, hideError, renderSessionMeta, renderLegend, renderMetricCards, renderTable, switchTab, toggleDarkMode, getArtefactMethod, getThreshold, renderBatchTable, renderGroupSummaryTable, copyMethodsStatement, renderArtefactPanel, renderQualitySummary, showAPAReport, renderManifest,buildDemographicsHTML } from "./ui.js";
@@ -103,9 +103,98 @@ async function processIncomingFiles(files) {
   renderManifest(manifest);
 }
 
+// ---- Duo Pair Processing (Task 4.1) ----
+// Process two Harvey files from a Duo pair:
+// 1. Clock alignment — synchronize timestamps
+// 2. Phase structure — apply file1's phases to file2
+// 3. Metrics & Synchrony — compute per-participant metrics and their correlation
+async function processDuoPair(session, method, threshold) {
+  const file1 = session.file1;
+  const file2 = session.file2;
+
+  // Parse both files
+  const allRows1 = await new Promise((resolve, reject) => {
+    Papa.parse(file1, {
+      header: true,
+      skipEmptyLines: true,
+      complete: res => resolve(res.data),
+      error: reject
+    });
+  });
+
+  const allRows2 = await new Promise((resolve, reject) => {
+    Papa.parse(file2, {
+      header: true,
+      skipEmptyLines: true,
+      complete: res => resolve(res.data),
+      error: reject
+    });
+  });
+
+  if (!allRows1 || !allRows2) return null;
+
+  // Step 1: Clock alignment
+  // Find SESSION_START events and calculate offset
+  const sessionStart1 = allRows1.find(r => (r.event || '').includes('SESSION_START'));
+  const sessionStart2 = allRows2.find(r => (r.event || '').includes('SESSION_START'));
+
+  let clockOffset = 0;
+  if (sessionStart1 && sessionStart2) {
+    const ts1 = parseFloat(sessionStart1.timestamp_ms);
+    const ts2 = parseFloat(sessionStart2.timestamp_ms);
+    if (!isNaN(ts1) && !isNaN(ts2)) {
+      clockOffset = ts2 - ts1;
+      // Apply offset to file2
+      allRows2.forEach(r => {
+        const ts = parseFloat(r.timestamp_ms);
+        if (!isNaN(ts)) {
+          r.timestamp_ms = (ts - clockOffset).toString();
+        }
+      });
+    }
+  }
+
+  // Step 2: Phase structure from file1
+  const phases = buildPhases(allRows1);
+
+  // Step 3: Per-participant metrics and synchrony
+  const result1 = await parseBatchFile(file1, method, threshold);
+  const result2 = await parseBatchFile(file2, method, threshold);
+
+  if (!result1 || !result2) return null;
+
+  // Calculate synchrony for each phase
+  const synchrony = phases.map(p => {
+    const phaseValid1 = getValidRows(p.rows);
+    const phaseValid2 = getValidRows(
+      allRows2.filter(r => parseInt(r.phase, 10) === p.phaseNumber)
+    );
+
+    if (phaseValid1.length === 0 || phaseValid2.length === 0) {
+      return { phase: p.label, r: null, warning: true };
+    }
+
+    return {
+      phase: p.label,
+      ...calcSynchrony(phaseValid1, phaseValid2)
+    };
+  });
+
+  // Add synchrony columns to results
+  const row1 = { ...result1 };
+  const row2 = { ...result2 };
+
+  synchrony.forEach(s => {
+    const colName = `${s.phase.replace(/\s+/g, '')}_Synchrony_r`;
+    row1[colName] = s.r || '—';
+    row2[colName] = s.r || '—';
+  });
+
+  return { row1, row2, synchrony };
+}
+
 // ---- Manifest processing ----
 
-// Called when the user clicks "Process files" in the manifest panel
 async function initManifestProcessing() {
   if (!currentManifest || currentManifest.sessions.length === 0) return;
   await processManifest(currentManifest);
@@ -165,15 +254,26 @@ async function processManifest(manifest) {
         }
 
       } else if (s.kind === 'duo-pair') {
-        // Duo pair — process both files, prefix D1_/D2_ to distinguish sensors
-        const row1 = await parseBatchFile(s.file1, method, threshold);
-        const row2 = await parseBatchFile(s.file2, method, threshold);
-        if (row1 && row2) {
-          delete row1.ParticipantID;
-          delete row2.ParticipantID;
+        // Duo pair — process both files with synchrony calculation
+        const duoResult = await processDuoPair(s, method, threshold);
+        if (duoResult) {
+          delete duoResult.row1.ParticipantID;
+          delete duoResult.row2.ParticipantID;
           const demogs = appState.demographics.get(s.baseID) || {};
-          const orderedRow1 = { ParticipantID: `${s.baseID}.1`, PairID: s.baseID, IsDuoPaired: true, ...row1};
-          const orderedRow2 = { ParticipantID: `${s.baseID}.2`, PairID: s.baseID, IsDuoPaired: true, ...row2};
+          const orderedRow1 = { 
+            ParticipantID: `${s.baseID}.1`, 
+            PairID: s.baseID, 
+            IsDuoPaired: true, 
+            ...demogs,
+            ...duoResult.row1
+          };
+          const orderedRow2 = { 
+            ParticipantID: `${s.baseID}.2`, 
+            PairID: s.baseID, 
+            IsDuoPaired: true, 
+            ...demogs,
+            ...duoResult.row2
+          };
           rowsToAdd.push(orderedRow1, orderedRow2);
         }
       }

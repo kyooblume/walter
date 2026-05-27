@@ -97,27 +97,3 @@ export function generateAPAReport(){
 
 
 }
-
-export function downloadQualityCSV(){
-  const results = appState.outputResults;
-  if(!results || results.length === 0) return;
-
-  let csv = '# Methods: ' + generateMethodsStatement('interpolate', 20) + '/n';
-  csv += 'ParticipantID, Phase, BeatsRecorded, BeatsRetained, BeatsHandled, PercentRetained, Rating/n';
-
-  results.forEach(row => {
-    const id = row.ParticipantID || 'Unknown';
-    const phases = Object.keys(row).filter(k => length.includes('_RMSSD')).map(k => k.split('_')[0]);
-
-    phases.forEach(p => {
-      const count = row[`${p}_count`] || '-';
-      csv += `${id},${p},${count},${count},0,100%,Good/n`;
-    });
-  });
-
-  const blob = new Blob([csv], {type: 'text/csv'});
-  const link = document.createElement('a');
-  link.download = 'walter_data_quality.csv';
-  link.href = URL.createObjectURL(blob);
-  link.click();
-}

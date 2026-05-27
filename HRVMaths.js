@@ -271,3 +271,104 @@ export function calcPoincareSD(rows) {
     sd1_sd2_ratio: ratio
   };
 }
+
+// ============================================================
+// Duo Pair Synchrony: Pearson correlation of RMSSD time series
+// Measures how synchronized two Polar H10 sensors are during a phase
+// ============================================================
+
+// Resample RMSSD values onto a regular 1-second grid using linear interpolation
+function resampleToGrid(rows, fs = 1) {
+  const timestamps = rows.map(r => parseFloat(r.timestamp_ms));
+  const rmssdValues = rows.map(r => {
+    const rmssd = parseFloat(r.rmssd_ms);
+    return isNaN(rmssd) ? 0 : rmssd;
+  });
+
+  if (timestamps.length < 2) return rmssdValues;
+
+  // Convert timestamps to seconds from start
+  const t0 = timestamps[0];
+  const timeSec = timestamps.map(t => (t - t0) / 1000);
+  const tEnd = timeSec[timeSec.length - 1];
+
+  // Create evenly spaced grid at fs Hz
+  const grid = [];
+  for (let t = 0; t <= tEnd; t += 1 / fs) {
+    grid.push(t);
+  }
+
+  // Linear interpolation for each grid point
+  const resampled = grid.map(t => {
+    // Find surrounding data points
+    let i = 0;
+    while (i < timeSec.length - 1 && timeSec[i + 1] < t) i++;
+
+    if (i >= timeSec.length - 1) return rmssdValues[rmssdValues.length - 1];
+
+    const t1 = timeSec[i];
+    const t2 = timeSec[i + 1];
+    const v1 = rmssdValues[i];
+    const v2 = rmssdValues[i + 1];
+
+    // Linear interpolation
+    return v1 + (v2 - v1) * (t - t1) / (t2 - t1);
+  });
+
+  return resampled;
+}
+
+// Calculate Pearson correlation coefficient
+function pearsonR(arr1, arr2) {
+  if (arr1.length === 0 || arr2.length === 0 || arr1.length !== arr2.length) return 0;
+
+  const n = arr1.length;
+  const mean1 = arr1.reduce((a, b) => a + b, 0) / n;
+  const mean2 = arr2.reduce((a, b) => a + b, 0) / n;
+
+  let sumCov = 0;
+  let sumVar1 = 0;
+  let sumVar2 = 0;
+
+  for (let i = 0; i < n; i++) {
+    const dev1 = arr1[i] - mean1;
+    const dev2 = arr2[i] - mean2;
+    sumCov += dev1 * dev2;
+    sumVar1 += dev1 * dev1;
+    sumVar2 += dev2 * dev2;
+  }
+
+  const sd1 = Math.sqrt(sumVar1 / n);
+  const sd2 = Math.sqrt(sumVar2 / n);
+
+  if (sd1 === 0 || sd2 === 0) return 0;
+  return sumCov / (n * sd1 * sd2);
+}
+
+// Calculate synchrony (Pearson r) between two participants in a phase
+// Returns { r, warning } where r is correlation or null if SYNC_LOST detected
+export function calcSynchrony(rows1, rows2) {
+  if (!rows1 || !rows2 || rows1.length === 0 || rows2.length === 0) {
+    return { r: null, warning: 'Insufficient data' };
+  }
+
+  // Check for SYNC_LOST events
+  const hasSyncLost1 = rows1.some(r => (r.event || '').includes('SYNC_LOST'));
+  const hasSyncLost2 = rows2.some(r => (r.event || '').includes('SYNC_LOST'));
+
+  if (hasSyncLost1 || hasSyncLost2) {
+    return { r: null, warning: true };
+  }
+
+  // Resample both onto 1-second grid
+  const resampled1 = resampleToGrid(rows1, 1);
+  const resampled2 = resampleToGrid(rows2, 1);
+
+  // Calculate Pearson r
+  const r = pearsonR(resampled1, resampled2);
+
+  return {
+    r: r.toFixed(2),
+    warning: false
+  };
+}

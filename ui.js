@@ -272,7 +272,6 @@ export function renderLegend(phases) {
 }
 
 export function renderArtefactPanel(currentMethod, currentThreshold) {
-  // Remove existing panel if present before re-rendering
   const existing = document.getElementById('artefactPanel');
   if (existing) existing.remove();
 
@@ -281,10 +280,12 @@ export function renderArtefactPanel(currentMethod, currentThreshold) {
   panel.className = 'card';
   panel.innerHTML = `
     <div class="card-header">
-      <span class="card-title">Artefact handling settings</span>
+      <span class="card-title">Processing options</span>
     </div>
 
-    <!-- Radio buttons: select artefact handling method -->
+    <!-- ── ARTEFACT HANDLING ── -->
+    <div style="font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.05em; color:#888780; margin-bottom:10px;">Artefact handling</div>
+
     <div style="display:flex; gap:24px; margin-bottom:16px; flex-wrap:wrap;">
       <label style="display:flex; align-items:center; gap:6px; cursor:pointer; font-size:14px;">
         <input type="radio" name="artefactMethod" value="interpolate" ${currentMethod === 'interpolate' ? 'checked' : ''}>
@@ -300,7 +301,6 @@ export function renderArtefactPanel(currentMethod, currentThreshold) {
       </label>
     </div>
 
-    <!-- Threshold slider: controls sensitivity of artefact detection (10–30%, default 20%) -->
     <div style="margin-bottom:16px;">
       <div style="display:flex; align-items:center; gap:12px; margin-bottom:4px;">
         <label style="font-size:13px; color:#5F5E5A; min-width:80px;">Threshold</label>
@@ -313,8 +313,7 @@ export function renderArtefactPanel(currentMethod, currentThreshold) {
       </div>
     </div>
 
-    <!-- Auto-generated methods statement for student reports -->
-    <div>
+    <div style="margin-bottom:24px;">
       <div style="font-size:13px; color:#5F5E5A; margin-bottom:6px;">Methods statement</div>
       <div style="display:flex; gap:8px; align-items:flex-start;">
         <textarea id="methodsStatement" readonly
@@ -325,13 +324,77 @@ export function renderArtefactPanel(currentMethod, currentThreshold) {
         <button class="btn btn-sm" onclick="copyMethodsStatement()">Copy</button>
       </div>
     </div>
+
+    <!-- ── CHARTS ── -->
+    <div style="border-top:1px solid #E0DED8; padding-top:16px;">
+      <div style="font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.05em; color:#888780; margin-bottom:12px;">Charts</div>
+      <div style="display:flex; flex-direction:column; gap:6px;">
+
+        ${makeChartRow('rrChart',            'chartTachogram',    'Tachogram (RR intervals over time)', true)}
+        ${makeChartOptsPanel('rrChart', true)}
+
+        ${makeChartRow('hrChart',            'chartHR',           'Heart rate over time', false)}
+        ${makeChartOptsPanel('hrChart', false)}
+
+        ${makeChartRow('rmssdOverTimeChart', 'chartRmssd',        'RMSSD over time', false)}
+        ${makeChartOptsPanel('rmssdOverTimeChart', false)}
+
+        ${makeChartRow('poincareChart',      'chartPoincare',     'Poincaré plot', false)}
+        ${makeChartOptsPanel('poincareChart', false, true)}
+
+        ${makeChartRow('histogramChart',     'chartHistogram',    'RR interval histogram', false)}
+        ${makeChartOptsPanel('histogramChart', false, false, true)}
+
+        ${makeChartRow('accelerometerChart', 'chartAccelerometer','Accelerometer data', false)}
+        ${makeChartOptsPanel('accelerometerChart', false, false, true)}
+
+      </div>
+    </div>
   `;
 
-  // Insert the panel before the metrics grid
   const metricsGrid = document.getElementById('metricsGrid');
-  document.getElementById("results").insertBefore(panel, metricsGrid);
+  document.getElementById('results').insertBefore(panel, metricsGrid);
 
   attachArtefactListeners();
+}
+
+// ── Helpers for building chart rows and option panels ──
+
+function makeChartRow(chartId, checkboxId, label, defaultOn) {
+  return `
+    <div style="display:flex; align-items:center; gap:8px;">
+      <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-size:13px; flex:1;">
+        <input type="checkbox" id="${checkboxId}" ${defaultOn ? 'checked' : ''} onchange="toggleChart('${chartId}')">
+        ${label}
+      </label>
+      <button class="btn btn-sm" onclick="toggleChartOptionsPanel('${chartId}')">Options ▾</button>
+    </div>`;
+}
+
+// isPoincare / isSimple control which option rows to show
+function makeChartOptsPanel(chartId, defaultOn, isPoincare = false, isSimple = false) {
+  const timeSeriesOpts = isSimple || isPoincare ? '' : `
+    <label><input type="checkbox" id="${chartId}_showPoints"> Show data points</label>
+    <label><input type="checkbox" id="${chartId}_showPhaseShading" checked> Show phase shading</label>
+    ${!isPoincare ? `<label><input type="checkbox" id="${chartId}_showArtefacts" checked> Show artefact markers</label>` : ''}
+    <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap; font-size:12px;">
+      <span style="color:#888780; min-width:80px;">Smoothing:</span>
+      <label><input type="radio" name="${chartId}_smoothing" value="raw" checked> Raw</label>
+      <label><input type="radio" name="${chartId}_smoothing" value="smooth"> Smooth</label>
+    </div>
+    <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap; font-size:12px;">
+      <span style="color:#888780; min-width:80px;">Lock Y axis:</span>
+      <label>Min <input type="number" id="${chartId}_yMin" placeholder="auto" style="width:64px; padding:3px 6px; border:1px solid #E0DED8; border-radius:4px; font-size:12px;"></label>
+      <label>Max <input type="number" id="${chartId}_yMax" placeholder="auto" style="width:64px; padding:3px 6px; border:1px solid #E0DED8; border-radius:4px; font-size:12px;"></label>
+    </div>
+    <button class="btn btn-sm" onclick="applyChartOptions('${chartId}')">Apply</button>`;
+
+  return `
+    <div id="opts-${chartId}" class="chart-opts-panel" style="display:none; margin:2px 0 6px 24px;">
+      ${timeSeriesOpts}
+      <label><input type="checkbox" id="${chartId}_whiteBg"> White background</label>
+      <label><input type="checkbox" id="${chartId}_showGrid" checked> Grid lines</label>
+    </div>`;
 }
 
 // Attach change listeners to the radio buttons and threshold slider
@@ -486,7 +549,7 @@ export function buildDemographicsHTML(participantID){
     html += ` 
     
     <label style = "display:flex; flex-direction: column; gap: 4px; font-family: 'Georgia', serif;">
-    <span style = "font-size:11px; color: saddlebrown; font-weight: 600; text-transform: uppercase;">${field}</span>
+    <span style = "font-size:11px; color: saddlebrown; font-weight: 600; text-transform: uppercase;">${field}</spaan>
     <input type = "text" value = "${val}"
     style = "width: 90px; font-size: 13px; padding:4px 6px; border: 1px solid gray; border-radius:4px; background:white;"
     onchange = "updateDemographicValue('${participantID}', '${field}',this.value)">
@@ -494,7 +557,7 @@ export function buildDemographicsHTML(participantID){
     `;
   });
 
-  html += `<button class = "btn btn-sm" style = "font-size: 11px; height: fit-content; align-self: flex-end; background:white; border-color:tan; color: saddlebrown;" onclick = "addDemographicField()">+ Add Field</button>`;
+  html += `<button class = "btn btn-sm" style = "font-size: 11px; height: fit-content; align-self: flex-end; background:white; border-color:tan; color: saddlebrown"; onclick = "addDemograaphicField()"> + Add Field>`;
   html += '</div>';
   return html;
 }
@@ -506,7 +569,7 @@ export function renderManifest(manifest){
   const listEl = document.getElementById('manifestList');
   const warnEl = document.getElementById('manifestWarnings');
 
-  warnEl.innerHTML = manifest.warnings.length > 0 ? manifest.warnings.map(w => `${w}`).join('<br>') : '';
+  warnEl.innerHtML = manifest.warnings.length > 0 ? manifest.warnings.map(w => '${w}').join('<br>') : '';
 
   let html = '<div style = "display: flex; flex-direction:column; gap:16px;">';
 
@@ -522,7 +585,7 @@ export function renderManifest(manifest){
     <div style = "border: 1px solid gray; border-radius: 6px; padding: 12px; background:white;">
     <div style = "display: flex; justify-content: space-between; align-items: center;">
     <div style = "display: flex; align-items: center; gap: 12px;">
-    <strong style = "font-size: 14px; color: black;">${name}</strong>
+    <strong style = "font-size: 14px; color: black;"${name}</strong>
     <span style = "font-size: 12px; color:gray;">${type}</span>
     </div>
     <button class = "btn btn-sm" onclick = "removeManifestItem(${index})"> Remove</button>

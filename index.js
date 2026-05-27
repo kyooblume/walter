@@ -2,7 +2,7 @@
 
 import { appState } from "./config.js";
 import { getValidRows, calcMetrics,calculateDataQuality, calcFrequencyDomain } from "./HRVMaths.js";
-import { renderCharts, renderPoincare,renderTrajectoryChart,resetZoom } from "./chart.js";
+import { renderCharts, renderPoincare, renderTrajectoryChart, renderHistogram, renderRmssdOverTime, renderAccelerometer, resetZoom } from "./chart.js";
 import { buildPhases, parseBatchFile, classifyFiles } from "./fileParser.js";
 import { showError, hideError, renderSessionMeta, renderLegend, renderMetricCards, renderTable, switchTab, toggleDarkMode, getArtefactMethod, getThreshold, renderBatchTable, renderGroupSummaryTable, copyMethodsStatement, renderArtefactPanel, renderQualitySummary, showAPAReport, renderManifest,buildDemographicsHTML } from "./ui.js";
 import { downloadChart, generateMethodsStatement, downloadQualityCSV, downloadCSV } from "./export.js";
@@ -438,7 +438,28 @@ document.addEventListener('keydown', (e) => {
   
 });
 
-function toggleChartSettings(){
+// ---- Chart options panel toggle ----
+function toggleChartOptionsPanel(chartId) {
+  const panel = document.getElementById(`opts-${chartId}`);
+  if (!panel) return;
+  panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+}
+
+// Re-render the relevant chart(s) after options are changed
+function applyChartOptions(chartId) {
+  if (!appState.parsedAllValid || !appState.parsedPhases) return;
+  if (chartId === 'rrChart' || chartId === 'hrChart') {
+    renderCharts(appState.parsedAllValid, appState.parsedPhases);
+  } else if (chartId === 'poincareChart') {
+    renderPoincare(appState.parsedPhases);
+  } else if (chartId === 'histogramChart') {
+    renderHistogram(appState.parsedAllValid, appState.parsedPhases);
+  } else if (chartId === 'rmssdOverTimeChart') {
+    renderRmssdOverTime(appState.parsedAllValid, appState.parsedPhases);
+  } else if (chartId === 'accelerometerChart') {
+    renderAccelerometer(appState.summaryData.allRows, appState.parsedPhases);
+  }
+}
   if(appState.parsedAllValid && appState.parsedPhases){
     renderCharts(appState.parsedAllValid, appState.parsedPhases);
     renderPoincare(appState.parsedPhases);
@@ -450,44 +471,40 @@ function toggleChartSettings(){
 
 // ---- Chart visibility toggle (Task 3.2) ----
 function toggleChart(chartId) {
-  const cardId = `card-${chartId}`;
-  const card = document.getElementById(cardId);
-  
-  // Map canvas ID to checkbox ID
+  const cardId  = `card-${chartId}`;
+  const card    = document.getElementById(cardId);
+
   const checkboxIdMap = {
-    'rrChart': 'chartTachogram',
-    'hrChart': 'chartHR',
-    'poincareChart': 'chartPoincare',
-    'histogramChart': 'chartHistogram'
+    'rrChart':            'chartTachogram',
+    'hrChart':            'chartHR',
+    'poincareChart':      'chartPoincare',
+    'histogramChart':     'chartHistogram',
+    'rmssdOverTimeChart': 'chartRmssd',
+    'accelerometerChart': 'chartAccelerometer',
   };
-  
-  const checkboxId = checkboxIdMap[chartId];
-  const checkbox = document.getElementById(checkboxId);
-  
+
+  const checkbox = document.getElementById(checkboxIdMap[chartId]);
   if (!card || !checkbox) return;
-  
+
   if (checkbox.checked) {
-    // Show the card
     card.style.display = 'block';
-    
-    // Re-render the chart if data is available
     if (appState.parsedAllValid && appState.parsedPhases) {
       if (chartId === 'rrChart' || chartId === 'hrChart') {
         renderCharts(appState.parsedAllValid, appState.parsedPhases);
-      }
-      if (chartId === 'poincareChart') {
+      } else if (chartId === 'poincareChart') {
         renderPoincare(appState.parsedPhases);
+      } else if (chartId === 'histogramChart') {
+        renderHistogram(appState.parsedAllValid, appState.parsedPhases);
+      } else if (chartId === 'rmssdOverTimeChart') {
+        renderRmssdOverTime(appState.parsedAllValid, appState.parsedPhases);
+      } else if (chartId === 'accelerometerChart') {
+        renderAccelerometer(appState.summaryData.allRows, appState.parsedPhases);
       }
-      // Histogram rendering would go here when implemented
     }
   } else {
-    // Hide the card
     card.style.display = 'none';
-    
-    // Destroy the Chart.js instance to free memory
-    if (Chart.getChart(chartId)) {
-      Chart.getChart(chartId).destroy();
-    }
+    const inst = Chart.getChart(chartId);
+    if (inst) inst.destroy();
   }
 }
 
@@ -635,6 +652,8 @@ window.removeDemographicItem = (index) => {
 
 
 
+window.toggleChartOptionsPanel = toggleChartOptionsPanel;
+window.applyChartOptions = applyChartOptions;
 window.toggleChartSettings = toggleChartSettings;
 window.toggleChart = toggleChart;
 window.switchTab = switchTab;

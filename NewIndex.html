@@ -114,33 +114,6 @@
       <div class="phase-legend" id="phaseLegend"></div>
       <div class="metrics-grid" id="metricsGrid"></div>
 
-      <div class="card" style="margin-bottom:20px;">
-        <div class="card-header">
-          <span class="card-title">Charts</span>
-        </div>
-        
-        <div style="display:flex; flex-direction:column; gap:12px;">
-          <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-size:13px;">
-            <input type="checkbox" id="chartTachogram" checked onchange="toggleChart('rrChart')">
-            Tachogram (RR intervals over time)
-          </label>
-          
-          <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-size:13px;">
-            <input type="checkbox" id="chartHR" onchange="toggleChart('hrChart')">
-            Heart rate over time
-          </label>
-          
-          <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-size:13px;">
-            <input type="checkbox" id="chartPoincare" onchange="toggleChart('poincareChart')">
-            Poincaré plot
-          </label>
-          
-          <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-size:13px;">
-            <input type="checkbox" id="chartHistogram" onchange="toggleChart('histogramChart')">
-            RR interval histogram
-          </label>
-        </div>
-      </div>
 
       <div class="chart-card" id="card-rrChart" style="display:block;">
         <div class="card">
@@ -202,7 +175,37 @@
         </div>
       </div>
 
-      <div class="card" id="qualitySummary">
+      <div class="chart-card" id="card-rmssdOverTimeChart" style="display:none;">
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">RMSSD over time — rolling 20-beat window</span>
+            <div style="display:flex; gap:8px;">
+              <button class="btn btn-sm" onclick="resetZoom('rmssdOverTimeChart')">Reset zoom</button>
+              <button class="btn btn-sm" onclick="downloadChart('rmssdOverTimeChart', 'walter_rmssd_time.png')">Download PNG</button>
+            </div>
+          </div>
+          <div style="font-size:11px; color:#888780; margin-bottom:8px;">
+            Scroll to zoom · Drag to pan · Double-click to reset
+          </div>
+          <div class="chart-wrap"><canvas id="rmssdOverTimeChart"></canvas></div>
+        </div>
+      </div>
+
+      <div class="chart-card" id="card-accelerometerChart" style="display:none;">
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">Accelerometer data (X / Y / Z)</span>
+            <div style="display:flex; gap:8px;">
+              <button class="btn btn-sm" onclick="resetZoom('accelerometerChart')">Reset zoom</button>
+              <button class="btn btn-sm" onclick="downloadChart('accelerometerChart', 'walter_accelerometer.png')">Download PNG</button>
+            </div>
+          </div>
+          <div style="font-size:11px; color:#888780; margin-bottom:8px;">
+            Scroll to zoom · Drag to pan · Double-click to reset
+          </div>
+          <div class="chart-wrap"><canvas id="accelerometerChart"></canvas></div>
+        </div>
+      </div>
         <div class="card-header">
           <span class="card-title">Data quality summary</span>
           <button class="btn btn-sm" onclick="downloadQualityCSV()">Download CSV</button>

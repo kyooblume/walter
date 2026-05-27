@@ -253,3 +253,51 @@ body.dark{
   margin-top: 8px; width: 100%; font-size: 12px;
   padding: 6px; text-align: center;
 }
+
+/* ---- Chart options panel (Task 3.2) ---- */
+.chart-option-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.chart-opts-panel {
+  margin: 4px 0 8px 24px;
+  padding: 12px 16px;
+  background: var(--whiteBackgroundColor);
+  border: 1px solid #E0DED8;
+  border-radius: var(--radius-sm);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.chart-opts-panel label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.opts-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  font-size: 12px;
+}
+
+.opts-row span {
+  color: var(--grayText);
+  min-width: 80px;
+}
+
+.chart-opts-panel input[type="number"] {
+  padding: 3px 6px;
+  border: 1px solid #E0DED8;
+  border-radius: 4px;
+  font-size: 12px;
+  background: var(--whiteBackgroundColor);
+  color: var(--blackText);
+}

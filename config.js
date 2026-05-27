@@ -7,6 +7,9 @@ export const PHASE_COLORS = [
   { bg: '#FAEEDA', border: '#BA7517', text: '#633806' },
 ];
 
+// Surfaced in the About page; bumped whenever a release ships. (Task 4.3)
+export const VERSION = '1.1.0';
+
 export const appState = {
  parsedPhases: null, // Stores parsed phase data so settings changes can trigger recalculation without re-uploading
  parsedAllValid: null, // Stores all valid rows across all phases // Chart.js instance for the Poincaré plot

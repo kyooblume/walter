@@ -1,5 +1,5 @@
 import { appState } from "./config.js";
-import { getValidRows,calcMetrics } from "./HRVMaths.js";
+import { getValidRows, calcMetrics, calculateDataQuality, calcFrequencyDomain } from "./HRVMaths.js";
 
 export function buildPhases(allRows){
         const phaseData = {};
@@ -82,10 +82,16 @@ export function parseBatchFile(file, method, threshold) {
         // Build one row: participantID + metrics per phase
         const row = { ParticipantID: meta.participantID };
 
+        // Collect per-phase data so the manifest path can render this
+        // session's individual charts when its tray row is clicked.
+        const phaseMetrics = [];
+
         phases.forEach(p => {
           const phaseValid = getValidRows(p.rows);
           const m          = calcMetrics(phaseValid, method, threshold);
           if (!m) return;
+
+          phaseMetrics.push({ label: p.label, m });
 
           // SPSS-safe column names: no spaces, no special chars, no leading numbers
           const prefix = `${sanitiseColName(p.label)}_`;
@@ -98,6 +104,42 @@ export function parseBatchFile(file, method, threshold) {
           row[prefix + 'MaxRR']    = m.maxRR;
           row[prefix + 'Duration'] = m.duration;
           row[prefix + 'Beats']    = m.count;
+        });
+
+        // Per-phase data quality (same calc the single-file UI uses)
+        const phaseQuality = phases.map((p, i) => {
+          const phaseValid = getValidRows(p.rows);
+          return { label: p.label, q: calculateDataQuality(p.rows, phaseValid, phaseMetrics[i]?.m) };
+        });
+
+        // Frequency-domain metrics (per phase + session). Guarded — short
+        // recordings throw a warning but shouldn't crash the whole parse.
+        let sessionFreq = null;
+        let phaseFreq   = null;
+        try {
+          sessionFreq = calcFrequencyDomain(validRows);
+          phaseFreq   = phases.map(p => ({
+            label: p.label,
+            f:     calcFrequencyDomain(getValidRows(p.rows))
+          }));
+        } catch (e) { /* ignore — leave as null */ }
+
+        // Non-enumerable wrapper keeps existing CSV builders unaffected:
+        // Object.keys(row) won't pick this up.
+        Object.defineProperty(row, '_details', {
+          value: {
+            fileName:       file.name,
+            meta,
+            allRows,
+            allValid:       validRows,
+            phases,
+            sessionMetrics: calcMetrics(validRows, method, threshold),
+            phaseMetrics,
+            phaseQuality,
+            sessionFreq,
+            phaseFreq,
+          },
+          enumerable: false,
         });
 
         resolve(row);
@@ -151,7 +193,7 @@ export async function classifyFiles(fileList){
     const kind = await detectFileKind(file);
     if(kind === 'harvey') harveyFiles.push(file);
     else if (kind === 'demographics') demographics.push(file)
-    else warnings.push(`${file.name} not a recognised harvey or file`)
+    else warnings.push(`${file.name} — not a recognised Harvey or demographics file. Skipped.`)
   }
 
   const parsed = harveyFiles.map(f => ({ file:f, meta: parseFilenameMeta(f.name)}));
@@ -173,11 +215,11 @@ export async function classifyFiles(fileList){
       sessions.push({
         kind:'duo-pair',
         baseID: has1.meta.baseID,
-        date: has1.file,
-        file1: has1.file,
-        file2: has2.file,
-         meta1: has1.meta,
-         meta: has2.meta,
+        date:   has1.meta.date,   // ← was has1.file (the File object itself)
+        file1:  has1.file,
+        file2:  has2.file,
+        meta1:  has1.meta,
+        meta2:  has2.meta,        // ← was 'meta'; dev guide and processDuoPair expect meta2
       });
     } else{
       const orphan = has1 || has2;

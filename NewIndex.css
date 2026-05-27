@@ -3,21 +3,32 @@
   :root {
     --radius: 10px;
     --radius-sm: 6px;
-    --grayBackgroundColor: gray;
+    --grayBackgroundColor: #F1EFE8;
     --whiteBackgroundColor:white;
     --cardbackgroundColor: white;
     --blackText:black;
-    --grayText:gray;
-    --blueText:blue;
+    --grayText:#5F5E5A;
+    --blueText:#185FA5;
+    /* Aliases — existing CSS rules below use --gray-border, --gray-text, --text, --blue.
+       Without these declarations every .btn loses its border colour and every <th>
+       loses its text colour, producing the washed-out look in the live app. */
+    --gray-border: #E0DED8;
+    --gray-text:   #5F5E5A;
+    --text:        #1a1a18;
+    --blue:        #185FA5;
 }
 
 body.dark{
-    --grayBackgroundColor: gray;
-    --whiteBackgroundColor:black;
-    --cardbackgroundColor: black;
+    --grayBackgroundColor: #232323;
+    --whiteBackgroundColor:#111111;
+    --cardbackgroundColor: #111111;
     --blackText:white;
-    --grayText:white;
+    --grayText:#bbbbbb;
     --blueText:lightblue;
+    --gray-border: #333333;
+    --gray-text:   #bbbbbb;
+    --text:        #f0f0f0;
+    --blue:        lightblue;
 }
 
   body {

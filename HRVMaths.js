@@ -79,7 +79,18 @@ export function calcMetrics(rows, method = 'interpolate', threshold = 20) {
   const sdnn  = Math.sqrt(rr.map(v => (v - meanRR) ** 2).reduce((a, b) => a + b, 0) / rr.length);
   const pnn50 = diffs.length ? (diffs.filter(d => Math.abs(d) > 50).length / diffs.length) * 100 : 0;
 
-  const startRow = appState.summaryData.allRows ? appState.summaryData.allRows.find (r => ( r.event || '').trim() === 'SESSION_START'):null;
+  // SESSION_START is the trial-relative t0. Look it up in the rows passed in
+  // when possible; only fall back to appState (which is set for the single-file
+  // path) if it isn't present. The previous version always consulted
+  // appState.summaryData.allRows — so during batch/manifest processing, every
+  // participant used the FIRST file's t0, producing wrong durations.
+  let startRow = null;
+  if (Array.isArray(rows)) {
+    startRow = rows.find(r => (r.event || '').trim() === 'SESSION_START');
+  }
+  if (!startRow && appState.summaryData?.allRows) {
+    startRow = appState.summaryData.allRows.find(r => (r.event || '').trim() === 'SESSION_START');
+  }
   const t0 = startRow ? parseFloat(startRow.timestamp_ms) : parseFloat(rows[0].timestamp_ms);
   const t1 = parseFloat(rows[rows.length - 1].timestamp_ms);
   const duration = (t1 - t0) / 1000;

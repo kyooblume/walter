@@ -2,10 +2,10 @@
 
 import { appState } from "./config.js";
 import { getValidRows, calcMetrics,calculateDataQuality, calcFrequencyDomain, calcSynchrony } from "./HRVMaths.js";
-import { renderCharts, renderPoincare, renderTrajectoryChart, renderHistogram, renderRmssdOverTime, renderAccelerometer, resetZoom,applyAPA7Style } from "./chart.js";
+import { renderCharts, renderPoincare, renderTrajectoryChart, renderHistogram, renderRmssdOverTime, renderAccelerometer, resetZoom, applyAPA7Style, resetChartStyle } from "./chart.js";
 import { buildPhases, parseBatchFile, classifyFiles } from "./fileParser.js";
 import { showError, hideError, renderSessionMeta, renderLegend, renderMetricCards, renderTable, switchTab, toggleDarkMode, getArtefactMethod, getThreshold, renderBatchTable, renderGroupSummaryTable, copyMethodsStatement, renderArtefactPanel, renderQualitySummary, showAPAReport, renderManifest,buildDemographicsHTML } from "./ui.js";
-import { downloadChart, generateMethodsStatement, downloadQualityCSV, downloadCSV } from "./export.js";
+import { downloadChart, copyChart, generateMethodsStatement, downloadQualityCSV, downloadCSV } from "./export.js";
 
 
 // ----- Get DOM elements -----
@@ -74,28 +74,27 @@ async function processIncomingFiles(files) {
   currentManifest   = manifest;
 
 
-  if(manifest.demographics.length > 0){
-    for(const file of manifest.demographics){
-         Papa.parse(file, {
-          header: true,
-          skipEmptyLines:true,
-          complete: (res) => {
-            res.data.forEach(row => {
-              if (row.ParticipantID) {
-                const id = row.ParticipantID.trim();
+  if (manifest.demographics.length > 0) {
+    for (const file of manifest.demographics) {
+      Papa.parse(file, {
+        header: true,
+        skipEmptyLines: true,
+        complete: (res) => {
+          res.data.forEach(row => {
+            if (row.ParticipantID) {
+              const id = row.ParticipantID.trim();
+              const existing = appState.demographics.get(id) || {};
+              appState.demographics.set(id, { ...existing, ...row });
 
-                const existing = appState.demographics.get(id) || {};
-                appState.demographics.set(id, { ...existing, ...row });
-
-                Object.keys(row).forEach(key => {
-                  if(key !== 'ParticipantID' && !appState.demographicFields.includes(key))
-                    appState.demographicFields.push(key);
+              Object.keys(row).forEach(key => {
+                if (key !== 'ParticipantID' && !appState.demographicFields.includes(key)) {
+                  appState.demographicFields.push(key);
                 }
-              )
-              }
-            })
-          }
-         })
+              });
+            }
+          });
+        }
+      });
     }
   }
 
@@ -241,22 +240,33 @@ async function processManifest(manifest) {
         const row = await parseBatchFile(s.file || s.file1, method, threshold);
         if (row){
 
+        const details = row._details;
         delete row.ParticipantID;
         const demogs = appState.demographics.get(s.baseID) || {};
+        const participantID = s.kind === 'solo'
+          ? s.baseID
+          : (s.baseID + (s.meta?.duoSuffix ? '.' + s.meta.duoSuffix : ''));
         const orderedRow = {
-          ParticipantID: s.kind === 'solo' ? s.baseID : (s.baseID + (s.meta?.duoSuffix ? '.' + s.meta.duoSuffix : '')),
+          ParticipantID: participantID,
           PairID: '',
           IsDuoPaired: false,
           ...demogs,
           ...row
         };
-        rowsToAdd.push(orderedRow)
+        rowsToAdd.push(orderedRow);
+
+        // Keep the raw parsed data so clicking the tray row can render
+        // this participant's individual charts. (Map keyed by display ID.)
+        if (!appState.sessionDetails) appState.sessionDetails = new Map();
+        if (details) appState.sessionDetails.set(participantID, details);
         }
 
       } else if (s.kind === 'duo-pair') {
         // Duo pair — process both files with synchrony calculation
         const duoResult = await processDuoPair(s, method, threshold);
         if (duoResult) {
+          const details1 = duoResult.row1._details;
+          const details2 = duoResult.row2._details;
           delete duoResult.row1.ParticipantID;
           delete duoResult.row2.ParticipantID;
           const demogs = appState.demographics.get(s.baseID) || {};
@@ -275,6 +285,11 @@ async function processManifest(manifest) {
             ...duoResult.row2
           };
           rowsToAdd.push(orderedRow1, orderedRow2);
+
+          // Persist details for both participants in the pair
+          if (!appState.sessionDetails) appState.sessionDetails = new Map();
+          if (details1) appState.sessionDetails.set(`${s.baseID}.1`, details1);
+          if (details2) appState.sessionDetails.set(`${s.baseID}.2`, details2);
         }
       }
 
@@ -298,10 +313,26 @@ async function processManifest(manifest) {
 
     document.getElementById('manifestPanel').style.display = 'none'
 
+    // ── Show header controls now that data is loaded ──────────────────
+    // Without this, users coming through the manifest path (the common path)
+    // never see "+ Add files" or the Charts dropdown in the header.
+    document.getElementById('btnHeaderAddFiles').style.display    = 'inline-block';
+    document.getElementById('headerChartsDropdown').style.display = 'block';
+
     renderOutputTable(results);
     renderGroupSummaryTable(results)
     renderTrajectoryChart(results)
     renderSessionTray();
+
+    // Auto-select the first session so the user sees a worked example
+    // immediately instead of staring at "Results / Trajectory / Group summary"
+    // with no individual chart on the page.
+    if (results[0] && appState.sessionDetails?.get(results[0].ParticipantID)) {
+      renderSessionFromDetails(
+        appState.sessionDetails.get(results[0].ParticipantID),
+        results[0].ParticipantID
+      );
+    }
   }
 }
 
@@ -516,12 +547,22 @@ function resetApp() {
 }
 
 function resetBatch() {
+  // Legacy batch tab UI was replaced by the unified pipeline (Group 2).
+  // Guard every lookup — the old DOM nodes no longer exist.
   appState.batchResults = [];
-  document.getElementById('batchResults').style.display  = 'none';
-  document.getElementById('batchFileCount').textContent  = '';
-  document.getElementById('batchError').style.display    = 'none';
-  document.getElementById('batchFileInput').value        = '';
-  if (Chart.getChart("trajectoryChart")) Chart.getChart("trajectoryChart").destroy();
+  const ids = ['batchResults', 'batchFileCount', 'batchError', 'batchFileInput'];
+  ids.forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    if (id === 'batchFileInput') el.value = '';
+    else if (id === 'batchFileCount' || id === 'batchError') {
+      el.textContent = '';
+      el.style.display = 'none';
+    } else el.style.display = 'none';
+  });
+  if (window.Chart && Chart.getChart("trajectoryChart")) {
+    Chart.getChart("trajectoryChart").destroy();
+  }
 }
 
 // keyabord shortcuts
@@ -531,13 +572,8 @@ function resetBatch() {
 document.addEventListener('keydown', (e) => {
   if ((e.altKey || e.metaKey) && e.key.toLowerCase() === 'u'){
     e.preventDefault();
-
-    const panelSingle = document.getElementById('panelSingle');
-    if (window.getComputedStyle(panelSingle).display !== 'none'){
-      document.getElementById('fileInput').click();
-    } else{
-      document.getElementById('batchFileInput').click();
-    }
+    // Single unified path — always opens the main file input
+    document.getElementById('fileInput').click();
   }
 
     if(e.altKey && e.key.toLowerCase() === 'm'){
@@ -570,6 +606,9 @@ function applyChartOptions(chartId) {
   }
 }
 
+// Backwards-compatible alias. The inline tachogram options panel used to call
+// toggleChartSettings(), but the per-chart options now flow through
+// applyChartOptions(). Keep the alias so existing HTML onchange handlers work.
 function toggleChartSettings() {
   if (appState.parsedAllValid && appState.parsedPhases) {
     renderCharts(appState.parsedAllValid, appState.parsedPhases);
@@ -585,6 +624,9 @@ function toggleChart(chartId) {
   const cardId  = `card-${chartId}`;
   const card    = document.getElementById(cardId);
 
+  // In single-file mode the Processing Options panel has these checkboxes;
+  // in manifest mode only the header dropdown exists. Fall back to the header
+  // version (prefix 'hdr_') so toggling charts works in BOTH modes.
   const checkboxIdMap = {
     'rrChart':            'chartTachogram',
     'hrChart':            'chartHR',
@@ -594,7 +636,9 @@ function toggleChart(chartId) {
     'accelerometerChart': 'chartAccelerometer',
   };
 
-  const checkbox = document.getElementById(checkboxIdMap[chartId]);
+  const procBox = document.getElementById(checkboxIdMap[chartId]);
+  const hdrBox  = document.getElementById('hdr_' + checkboxIdMap[chartId]);
+  const checkbox = procBox || hdrBox;
   if (!card || !checkbox) return;
 
   if (checkbox.checked) {
@@ -679,6 +723,69 @@ function onTrayRowClick(index) {
   document.querySelectorAll('.tray-row').forEach((r, i) => {
     r.style.background = i === index ? '#E6F1FB' : '';
   });
+
+  // Resolve which participant ID to display for this tray row.
+  // Duo rows show two participants — default to .1, but if the row was
+  // clicked specifically with the .2 chip we honour that.
+  const session = currentManifest?.sessions[index];
+  if (!session) return;
+
+  let participantID;
+  if (session.kind === 'solo') {
+    participantID = session.baseID;
+  } else if (session.kind === 'duo-unmatched') {
+    participantID = session.baseID + (session.meta?.duoSuffix ? '.' + session.meta.duoSuffix : '');
+  } else if (session.kind === 'duo-pair') {
+    participantID = `${session.baseID}.1`;
+  }
+
+  const details = appState.sessionDetails?.get(participantID);
+  if (!details) {
+    console.warn(`No details cached for ${participantID}`);
+    return;
+  }
+  renderSessionFromDetails(details, participantID);
+}
+
+// Render the per-session detail view (metric cards, charts, quality table)
+// for one participant. Used by the tray-click handler in manifest mode so the
+// student can see individual tachograms / Poincaré plots for any participant.
+function renderSessionFromDetails(details, participantID) {
+  const resultsDiv = document.getElementById('results');
+  if (!resultsDiv) return;
+  resultsDiv.style.display = 'block';
+
+  // chart.js helpers read these directly. Set them BEFORE rendering so each
+  // chart sees the right data instead of whichever participant rendered last.
+  appState.parsedAllValid = details.allValid;
+  appState.parsedPhases   = details.phases;
+  appState.summaryData    = {
+    fileName:   details.fileName,
+    allRows:    details.allRows,
+    allValid:   details.allValid,
+    phasesRaw:  details.phases,
+    session:    details.sessionMetrics,
+    phases:     details.phaseMetrics,
+    quality:    details.phaseQuality,
+    method:     getArtefactMethod(),
+    threshold:  getThreshold(),
+  };
+
+  renderSessionMeta(details.fileName, details.sessionMetrics);
+  renderLegend(details.phases);
+  renderMetricCards(details.sessionMetrics, details.phaseMetrics);
+  renderQualitySummary(details.phaseQuality);
+  renderTable(details.sessionMetrics, details.phaseMetrics, details.sessionFreq, details.phaseFreq);
+
+  // Render every chart whose Charts-dropdown checkbox is currently ticked.
+  // toggleChart() reads the checkbox state and either renders or hides the card.
+  ['rrChart', 'hrChart', 'rmssdOverTimeChart',
+   'poincareChart', 'histogramChart', 'accelerometerChart'].forEach(id => {
+    toggleChart(id);
+  });
+
+  // Scroll the detail panel into view so the click feels responsive.
+  resultsDiv.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 function removeTraySession(index) {
@@ -788,6 +895,8 @@ function syncChartCheckbox(hdrCheckbox, targetCheckboxId, chartId) {
 }
 
 window.applyAPA7Style = applyAPA7Style;
+window.resetZoom = resetZoom;
+window.resetChartStyle = resetChartStyle;
 window.downloadQualityCSV = downloadQualityCSV;
 window.toggleHeaderCharts  = toggleHeaderCharts;
 window.syncChartCheckbox   = syncChartCheckbox;
@@ -800,6 +909,7 @@ window.resetApp = resetApp;
 window.resetBatch = resetBatch;
 window.resetManifest = resetManifest;
 window.downloadChart = downloadChart;
+window.copyChart = copyChart;
 window.downloadCSV = downloadCSV;
 window.copyMethodsStatement = copyMethodsStatement;
 window.showAPAReport = showAPAReport;

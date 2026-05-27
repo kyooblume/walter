@@ -3,11 +3,16 @@ import { generateMethodsStatement, generateAPAReport } from "./export.js";
 import { parseFilenameMeta } from "./fileParser.js";
 
 export function showError(msg) {
+  const errorBox = document.getElementById('errorBox');
+  if (!errorBox) return;
   errorBox.textContent = msg;
   errorBox.style.display = 'block';
 }
 
-export function hideError() { errorBox.style.display = 'none'; }
+export function hideError() {
+  const errorBox = document.getElementById('errorBox');
+  if (errorBox) errorBox.style.display = 'none';
+}
 
 export function renderMetricCards(s, phaseMetrics) {
   const grid    = document.getElementById('metricsGrid');
@@ -45,7 +50,12 @@ export function renderTable(session, phaseMetrics, sessionFreq, phaseFreq) {
     { label: 'Duration',   key: 'duration', unit: 's',     desc: 'Total duration of the recording or phase'     },
   ];
 
-  const table     = document.getElementById('summaryTable');
+  const table = document.getElementById('summaryTable');
+  // The detail summary table only exists in the per-session view. Skip
+  // silently in modes where it isn't on the page (e.g. before a session is
+  // selected in the manifest path).
+  if (!table) return;
+
   const phaseCols = phaseMetrics.map((p, i) => {
     const c = PHASE_COLORS[i % PHASE_COLORS.length];
     return `<th style="color:${c.text}">${p.label}</th>`;
@@ -165,60 +175,20 @@ export function toggleDarkMode(){
     document.body.classList.toggle('dark')
 }
 
+// Legacy multi-tab UI was replaced by the unified single-panel layout.
+// The single dropzone is always visible; only the About panel toggles.
+// All old tab-button DOM nodes are gone, so every getElementById is guarded.
 export function switchTab(tab) {
   const panelSingle = document.getElementById('panelSingle');
-  const panelBatch  = document.getElementById('panelBatch');
-  const tabSingle   = document.getElementById('tabSingle');
-  const tabBatch    = document.getElementById('tabBatch');
-  const tabAbout    = document.getElementById('tabAbout');
+  const panelAbout  = document.getElementById('panelAbout');
 
-  if (tab === 'single') {
-    panelSingle.style.display = 'block';
-    panelBatch.style.display  = 'none';
-    panelAbout.style.display = 'none'
-
-    tabSingle.style.borderBottom = '2px solid #185FA5';
-    tabSingle.style.color        = '#185FA5';
-
-    tabBatch.style.borderBottom  = '2px solid transparent';
-    tabBatch.style.color         = '#5F5E5A';
-
-    tabAbout.style.borderBottom  = '2px solid transparent';
-    tabAbout.style.color         = 'green'
-
-  } else if (tab === 'batch') {
-    panelSingle.style.display = 'none';
-    panelBatch.style.display  = 'block';
-    panelAbout.style.display = 'none'
-
-    tabSingle.style.borderBottom = '2px solid transparent';
-    tabSingle.style.color        = '#5F5E5A';
-
-    tabBatch.style.borderBottom  = '2px solid #185FA5';
-    tabBatch.style.color         = '#185FA5';
-
-    tabAbout.style.borderBottom = '2px solid transparent';
-    tabAbout.style.color = 'green'
+  if (tab === 'about') {
+    if (panelSingle) panelSingle.style.display = 'none';
+    if (panelAbout)  panelAbout.style.display  = 'block';
+  } else {
+    if (panelSingle) panelSingle.style.display = 'block';
+    if (panelAbout)  panelAbout.style.display  = 'none';
   }
-
-  else if (tab === 'about'){
-
-    panelSingle.style.display = 'none';
-    panelBatch.style.display = 'none';
-    panelAbout.style.display = 'block'
-    
-    tabSingle.style.borderBottom = '2px solid transparent';
-    tabSingle.style.color = "green";
-
-    tabBatch.style.borderBottom = '2px solid transparent';
-    tabBatch.style.color = "orange";
-
-    tabAbout.style.borderBottom = '2px solid blue';
-    tabAbout.style.color = 'pink';
-
-  }
-
-  
 }
 
 export function renderSessionMeta(fileName,sessionMetrics){
@@ -542,72 +512,75 @@ export function showAPAReport(){
 export function buildDemographicsHTML(participantID){
 
   const data = appState.demographics.get(participantID) || {};
-  let html = `<div style = "margin-top: 8px; padding: 10px 14px; background: beige; border: 1px solid tan; border-radius: 4px; display: flex; gap: 12px; flex-wrap: wrap; align-items: center; box-shadow: inset 0 1px 3px rgba(0,0,0,0,02);">`;
+  let html = `<div style="margin-top:8px; padding:10px 14px; background:beige; border:1px solid tan; border-radius:4px; display:flex; gap:12px; flex-wrap:wrap; align-items:center; box-shadow:inset 0 1px 3px rgba(0,0,0,0.02);">`;
 
   appState.demographicFields.forEach(field => {
     const val = data[field] || '';
-    html += ` 
-    
-    <label style = "display:flex; flex-direction: column; gap: 4px; font-family: 'Georgia', serif;">
-    <span style = "font-size:11px; color: saddlebrown; font-weight: 600; text-transform: uppercase;">${field}</spaan>
-    <input type = "text" value = "${val}"
-    style = "width: 90px; font-size: 13px; padding:4px 6px; border: 1px solid gray; border-radius:4px; background:white;"
-    onchange = "updateDemographicValue('${participantID}', '${field}',this.value)">
-    </label>
-    `;
+    html += `
+      <label style="display:flex; flex-direction:column; gap:4px; font-family:'Georgia',serif;">
+        <span style="font-size:11px; color:saddlebrown; font-weight:600; text-transform:uppercase;">${field}</span>
+        <input type="text" value="${val}"
+          style="width:90px; font-size:13px; padding:4px 6px; border:1px solid gray; border-radius:4px; background:white;"
+          onchange="updateDemographicValue('${participantID}', '${field}', this.value)">
+      </label>`;
   });
 
-  html += `<button class = "btn btn-sm" style = "font-size: 11px; height: fit-content; align-self: flex-end; background:white; border-color:tan; color: saddlebrown"; onclick = "addDemograaphicField()"> + Add Field>`;
+  // ← was: addDemograaphicField (typo) and missing </button>, stray '>' in label
+  html += `<button class="btn btn-sm" style="font-size:11px; height:fit-content; align-self:flex-end; background:white; border-color:tan; color:saddlebrown;" onclick="addDemographicField()">+ Add field</button>`;
   html += '</div>';
   return html;
 }
 
-export function renderManifest(manifest){
+export function renderManifest(manifest) {
   document.getElementById('dropZone').style.display = 'none';
   document.getElementById('manifestPanel').style.display = 'block';
 
   const listEl = document.getElementById('manifestList');
   const warnEl = document.getElementById('manifestWarnings');
 
-  warnEl.innerHtML = manifest.warnings.length > 0 ? manifest.warnings.map(w => '${w}').join('<br>') : '';
+  // ← was: warnEl.innerHtML (lowercase h+M is invalid) and '${w}' (literal, not interpolated)
+  warnEl.innerHTML = manifest.warnings.length > 0
+    ? manifest.warnings.map(w => `${w}`).join('<br>')
+    : '';
 
-  let html = '<div style = "display: flex; flex-direction:column; gap:16px;">';
+  let html = '<div style="display:flex; flex-direction:column; gap:16px;">';
 
-
-  manifest.sessions.forEach((s,index) => {
+  manifest.sessions.forEach((s, index) => {
     let name = s.baseID;
     let type = 'Solo session';
-    if(s.kind == 'duo-pair') {name = `${s.baseID}.1 + ${s.baseID}.2`; type = 'Harvey Duo pair'; }
-    else if( s.kind === 'duo-unmatched') {name = `${s.baseID}${s.meta.duoSuffix || ''}`; type = `Duo ${s.missingPair}`;}
+    if (s.kind === 'duo-pair') {
+      name = `${s.baseID}.1 + ${s.baseID}.2`;
+      type = 'Harvey Duo pair';
+    } else if (s.kind === 'duo-unmatched') {
+      name = `${s.baseID}${s.meta.duoSuffix ? '.' + s.meta.duoSuffix : ''}`;
+      type = `Duo — missing ${s.missingPair}`;
+    }
 
+    // ← <strong style="..."${name}</strong> was missing the closing '>'
     html += `
-    
-    <div style = "border: 1px solid gray; border-radius: 6px; padding: 12px; background:white;">
-    <div style = "display: flex; justify-content: space-between; align-items: center;">
-    <div style = "display: flex; align-items: center; gap: 12px;">
-    <strong style = "font-size: 14px; color: black;"${name}</strong>
-    <span style = "font-size: 12px; color:gray;">${type}</span>
-    </div>
-    <button class = "btn btn-sm" onclick = "removeManifestItem(${index})"> Remove</button>
-    </div>
-    ${buildDemographicsHTML(s.baseID)}
-    </div>`;
-    
+      <div style="border:1px solid gray; border-radius:6px; padding:12px; background:white;">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <div style="display:flex; align-items:center; gap:12px;">
+            <strong style="font-size:14px; color:black;">${name}</strong>
+            <span style="font-size:12px; color:gray;">${type}</span>
+          </div>
+          <button class="btn btn-sm" onclick="removeManifestItem(${index})">Remove</button>
+        </div>
+        ${buildDemographicsHTML(s.baseID)}
+      </div>`;
   });
 
-  manifest.demographics.forEach((d,index) => {
+  manifest.demographics.forEach((d, index) => {
     html += `
-    
-    <div style = "border: 1px dashed green; border-radius:6px; padding: 12px; background: honeydew; display: flex; justify-content: space-between; align-items:center;">
-    <div style = "display: flex; align-items: center; gap: 12px;">
-    <strong style = "font-size: 14px; color: darkgreen;">${d.name}</strong>
-    <span style = "font-size: 12px; color:green;"> Demographics file(Matched via ParticipantID)</span>
-    </div>
-    <button class = "btn btn-sm" style = "border-color: lightgreen; color: darkgreen; background:white;" onclick = "removeDemographicItem(${index})"> Remove </button>
-    </div>`;
+      <div style="border:1px dashed green; border-radius:6px; padding:12px; background:honeydew; display:flex; justify-content:space-between; align-items:center;">
+        <div style="display:flex; align-items:center; gap:12px;">
+          <strong style="font-size:14px; color:darkgreen;">${d.name}</strong>
+          <span style="font-size:12px; color:green;">Demographics file (matched via ParticipantID)</span>
+        </div>
+        <button class="btn btn-sm" style="border-color:lightgreen; color:darkgreen; background:white;" onclick="removeDemographicItem(${index})">Remove</button>
+      </div>`;
   });
 
   html += '</div>';
   listEl.innerHTML = html;
-};
-
+}

@@ -54,6 +54,8 @@ function getChartOptions(chartId) {
     showArtefacts:    get('showArtefacts',    true),
     whiteBg:          get('whiteBg',          false),
     showGrid:         get('showGrid',         true),
+    showIdentity:     get('showIdentity',     true),   // Poincaré only
+    showEllipse:      get('showEllipse',      true),   // Poincaré only
     smoothing:        getRadio('smoothing',   'raw'),   // 'raw' | 'smooth'
     yMin:             getVal('yMin',          undefined),
     yMax:             getVal('yMax',          undefined),
@@ -97,7 +99,7 @@ export function renderCharts(allValid, phases) {
   allValid.forEach((r, i) => {
     if (isDeleted[i]) return;
 
-    const elapsedSec = ((parseFloat(r.timestamp_ms) - t0) / 1000).toFixed(2);
+    const elapsedSec = (parseFloat(r.timestamp_ms) - t0) / 1000;
     const phaseLabel = timestampToPhase[r.timestamp_ms] || 'Unknown';
     const status     = isInterpolated[i] ? 'Interpolated' : 'Normal';
 
@@ -131,13 +133,13 @@ export function renderCharts(allValid, phases) {
   phases.forEach((p, i) => {
     if (i === 0) return;
     const t    = parseFloat(p.rows[0].timestamp_ms);
-    const xVal = ((t - t0) / 1000).toFixed(2);
+    const xVal = (t - t0) / 1000;
     const c    = PHASE_COLORS[i % PHASE_COLORS.length];
     annotations['line' + i] = {
       type: 'line', xMin: xVal, xMax: xVal,
       borderColor: c.border, borderWidth: 1.5, borderDash: [4, 3],
       label: {
-        content: p.label, display: true, position: 'start',
+        content: p.label, display: true, position: { x: 'start', y: 'start' },
         color: c.text, backgroundColor: c.bg,
         font: { size: 11 }, padding: 4, yAdjust: 8
       }
@@ -147,8 +149,8 @@ export function renderCharts(allValid, phases) {
   // Build coloured background boxes for each phase (respects showPhaseShading option)
   const phaseBackgrounds = phases.map((p, i) => {
     const c    = PHASE_COLORS[i % PHASE_COLORS.length];
-    const xMin = ((parseFloat(p.rows[0].timestamp_ms) - t0) / 1000).toFixed(2);
-    const xMax = ((parseFloat(p.rows[p.rows.length - 1].timestamp_ms) - t0) / 1000).toFixed(2);
+    const xMin = (parseFloat(p.rows[0].timestamp_ms) - t0) / 1000;
+    const xMax = (parseFloat(p.rows[p.rows.length - 1].timestamp_ms) - t0) / 1000;
     return { type: 'box', xMin, xMax, backgroundColor: c.bg + '55', borderWidth: 0 };
   });
 
@@ -284,22 +286,26 @@ export function renderPoincare(phases) {
   const maxRR = allRR.length ? Math.max(...allRR) : 1200;
 
   // Identity line: 45° dashed diagonal (RR[n] = RR[n+1])
-  const annotations = {
-    identityLine: {
+  // Suppressed when the user unchecks "Identity line" in chart options.
+  const annotations = {};
+  if (pcOpts.showIdentity) {
+    annotations.identityLine = {
       type:        'line',
       xMin: minRR, xMax: maxRR,
       yMin: minRR, yMax: maxRR,
       borderColor: '#BBBBBB',
       borderWidth: 1,
       borderDash:  [4, 4],
-    }
-  };
+    };
+  }
 
   // SD1/SD2 ellipse plugin — draws directly on the canvas in afterDraw
   // Centred on mean RR, axes = SD2 (along identity line) and SD1 (perpendicular)
+  // Skipped when the user unchecks "SD1/SD2 ellipse" in chart options.
   const sd1sd2EllipsePlugin = {
     id: 'sd1sd2Ellipse',
     afterDraw(chart) {
+      if (!pcOpts.showEllipse) return;
       const { ctx, scales: { x, y } } = chart;
 
       chart.data.datasets.forEach(dataset => {
@@ -513,7 +519,7 @@ export function renderRmssdOverTime(allValid, phases) {
     const window = rr.slice(i - WINDOW, i);
     const diffs  = window.slice(1).map((v, j) => v - window[j]);
     const rmssd  = Math.sqrt(diffs.map(d => d * d).reduce((a, b) => a + b, 0) / diffs.length);
-    const elapsedSec = ((parseFloat(allValid[i].timestamp_ms) - t0) / 1000).toFixed(2);
+    const elapsedSec = (parseFloat(allValid[i].timestamp_ms) - t0) / 1000;
     rmssdData.push({ x: elapsedSec, y: rmssd });
   }
 
@@ -523,18 +529,18 @@ export function renderRmssdOverTime(allValid, phases) {
   phases.forEach((p, i) => {
     if (i > 0) {
       const t    = parseFloat(p.rows[0].timestamp_ms);
-      const xVal = ((t - t0) / 1000).toFixed(2);
+      const xVal = (t - t0) / 1000;
       const c    = PHASE_COLORS[i % PHASE_COLORS.length];
       annotations['line' + i] = {
         type: 'line', xMin: xVal, xMax: xVal,
         borderColor: c.border, borderWidth: 1.5, borderDash: [4, 3],
-        label: { content: p.label, display: true, position: 'start', color: c.text, backgroundColor: c.bg, font: { size: 11 }, padding: 4, yAdjust: 8 }
+        label: { content: p.label, display: true, position: { x: 'start', y: 'start' }, color: c.text, backgroundColor: c.bg, font: { size: 11 }, padding: 4, yAdjust: 8 }
       };
     }
     if (opts.showPhaseShading) {
       const c    = PHASE_COLORS[i % PHASE_COLORS.length];
-      const xMin = ((parseFloat(p.rows[0].timestamp_ms) - t0) / 1000).toFixed(2);
-      const xMax = ((parseFloat(p.rows[p.rows.length - 1].timestamp_ms) - t0) / 1000).toFixed(2);
+      const xMin = (parseFloat(p.rows[0].timestamp_ms) - t0) / 1000;
+      const xMax = (parseFloat(p.rows[p.rows.length - 1].timestamp_ms) - t0) / 1000;
       phaseBackgrounds.push({ type: 'box', xMin, xMax, backgroundColor: c.bg + '55', borderWidth: 0 });
     }
   });
@@ -577,7 +583,6 @@ export function renderRmssdOverTime(allValid, phases) {
           title: { display: true, text: 'Time (s)', font: { size: 11 }, color: '#888780' },
           ticks: { font: { size: 11 }, color: '#888780' },
           grid:  { color: opts.showGrid ? '#F1EFE8' : 'transparent' },
-          ...(opts.yMin !== undefined ? { min: opts.yMin } : {}),
         },
         y: {
           title: { display: true, text: `RMSSD (ms) — rolling ${WINDOW}-beat window`, font: { size: 11 }, color: '#888780' },
@@ -633,7 +638,7 @@ export function renderAccelerometer(allRows, phases) {
   const accData = { x: [], y: [], z: [] };
   allRows.forEach(r => {
     if (!r.acc_x) return;
-    const elapsed = ((parseFloat(r.timestamp_ms) - t0) / 1000).toFixed(2);
+    const elapsed = (parseFloat(r.timestamp_ms) - t0) / 1000;
     accData.x.push({ x: elapsed, y: parseFloat(r.acc_x) });
     accData.y.push({ x: elapsed, y: parseFloat(r.acc_y) });
     accData.z.push({ x: elapsed, y: parseFloat(r.acc_z) });
@@ -644,12 +649,12 @@ export function renderAccelerometer(allRows, phases) {
   phases.forEach((p, i) => {
     if (i === 0) return;
     const t    = parseFloat(p.rows[0].timestamp_ms);
-    const xVal = ((t - t0) / 1000).toFixed(2);
+    const xVal = (t - t0) / 1000;
     const c    = PHASE_COLORS[i % PHASE_COLORS.length];
     annotations['line' + i] = {
       type: 'line', xMin: xVal, xMax: xVal,
       borderColor: c.border, borderWidth: 1.5, borderDash: [4, 3],
-      label: { content: p.label, display: true, position: 'start', color: c.text, backgroundColor: c.bg, font: { size: 11 }, padding: 4, yAdjust: 8 }
+      label: { content: p.label, display: true, position: { x: 'start', y: 'start' }, color: c.text, backgroundColor: c.bg, font: { size: 11 }, padding: 4, yAdjust: 8 }
     };
   });
 
@@ -759,26 +764,179 @@ export function renderTrajectoryChart(rows) {
   });
 }
 
-export function applyAPA7Style(id){
-  const chart = Chart.getChart(id);
-  if(!chart) return;
+// ============================================================
+// APA7 style preset (Task 3.4)
+//
+// Per dev guide, clicking "APA7 Preset" turns the chart into something a
+// student can paste straight into a journal article. Specifically:
+//   • Transparent background (prints on whatever paper colour)
+//   • No gridlines
+//   • No top/right axis borders (only left + bottom remain)
+//   • All text 10pt
+//   • All lines 1px
+//   • Black + dark grey only (prints clearly in greyscale)
+//   • No phase background shading — boundary lines stay
+//
+// We snapshot the chart's "before" state into chart._apa7Backup so the user
+// can return to the styled view with "Reset style".
+// ============================================================
 
-  chart.options.plugins.customCanvasBackgroundColor.color = 'transparent';
+const APA_BLACK = '#000000';
+const APA_DGREY = '#444444';
+const APA_FONT  = 10;
+
+export function applyAPA7Style(id) {
+  const chart = Chart.getChart(id);
+  if (!chart) return;
+
+  // ── Snapshot before mutating so Reset can restore ───────────────────
+  // Only snapshot the first time so repeat clicks don't overwrite the
+  // original values with already-APA7-styled ones.
+  if (!chart._apa7Backup) {
+    chart._apa7Backup = {
+      bg: chart.options.plugins.customCanvasBackgroundColor?.color,
+      scales: {},
+      annotations: {},
+      datasets: chart.data.datasets.map(ds => ({
+        borderColor:     ds.borderColor,
+        backgroundColor: ds.backgroundColor,
+        borderWidth:     ds.borderWidth,
+        pointRadius:     ds.pointRadius,
+      })),
+    };
+    ['x', 'y'].forEach(axis => {
+      const sc = chart.options.scales?.[axis];
+      if (!sc) return;
+      chart._apa7Backup.scales[axis] = {
+        gridColor:    sc.grid?.color,
+        gridDisplay:  sc.grid?.display,
+        ticksColor:   sc.ticks?.color,
+        ticksFont:    sc.ticks?.font ? { ...sc.ticks.font } : undefined,
+        titleColor:   sc.title?.color,
+        titleFont:    sc.title?.font ? { ...sc.title.font } : undefined,
+        borderColor:  sc.border?.color,
+        borderDisplay: sc.border?.display,
+      };
+    });
+    const annots = chart.options.plugins.annotation?.annotations;
+    if (annots) {
+      Object.keys(annots).forEach(key => {
+        chart._apa7Backup.annotations[key] = {
+          display: annots[key].display,
+          backgroundColor: annots[key].backgroundColor,
+        };
+      });
+    }
+  }
+
+  // ── Apply APA7 styling ──────────────────────────────────────────────
+
+  // Transparent background — the dev guide is explicit on this, even
+  // though "white" prints cleanly too. Transparent is the standard.
+  if (chart.options.plugins.customCanvasBackgroundColor) {
+    chart.options.plugins.customCanvasBackgroundColor.color = 'transparent';
+  }
 
   ['x', 'y'].forEach(axis => {
-    if(chart.options.scales[axis => {
-      chart.options.scales[axis].grid.color = 'transparent';
-      chart.options.scales[axis].ticks.color = 'black';
-      chart.options.scales[axis].title.color = 'black';
-    }
-  ]);
+    const sc = chart.options.scales?.[axis];
+    if (!sc) return;
 
+    // No gridlines
+    sc.grid = sc.grid || {};
+    sc.grid.color   = 'transparent';
+    sc.grid.display = false;
+
+    // Tick & title text — 10pt, dark grey
+    sc.ticks = sc.ticks || {};
+    sc.ticks.color = APA_DGREY;
+    sc.ticks.font  = { ...(sc.ticks.font || {}), size: APA_FONT };
+
+    sc.title = sc.title || {};
+    sc.title.color = APA_BLACK;
+    sc.title.font  = { ...(sc.title.font || {}), size: APA_FONT };
+
+    // Keep the visible axis line (left for y, bottom for x) — Chart.js draws
+    // these by default. Only the top/right "borders" need suppressing, and
+    // those aren't drawn unless explicitly enabled, so no action needed.
+    sc.border = sc.border || {};
+    sc.border.color   = APA_BLACK;
+    sc.border.display = true;
+  });
+
+  // No phase shading boxes — boundary lines (type:'line') stay visible.
   const annots = chart.options.plugins.annotation?.annotations;
-  if(annots){
+  if (annots) {
     Object.keys(annots).forEach(key => {
-      if(annots[key].type === 'box') annots[key].backgroundColor = 'transparent';
+      if (annots[key].type === 'box') annots[key].display = false;
     });
   }
+
+  // All dataset lines 1px, black + dark grey, no fill.
+  // Scatter plots (Poincaré) keep their colours so phases stay distinguishable
+  // — APA tolerates greyscale shading for distinct point groups.
+  chart.data.datasets.forEach((ds, i) => {
+    ds.borderWidth = 1;
+    if (chart.config.type !== 'scatter' && chart.config.type !== 'bar') {
+      ds.borderColor     = i === 0 ? APA_BLACK : APA_DGREY;
+      ds.backgroundColor = 'transparent';
+    }
+    if (chart.config.type === 'bar') {
+      // Histogram: dark grey bars print cleanly in greyscale.
+      ds.backgroundColor = APA_DGREY;
+      ds.borderColor     = APA_BLACK;
+    }
+  });
+
+  // Hide tooltip rendering of crosshair lines etc. (cosmetic)
+  if (chart.options.plugins.legend) {
+    chart.options.plugins.legend.labels = chart.options.plugins.legend.labels || {};
+    chart.options.plugins.legend.labels.font = { size: APA_FONT };
+    chart.options.plugins.legend.labels.color = APA_BLACK;
+  }
+
   chart.update();
-})
+}
+
+// Reset back to whatever the chart looked like before APA7 was applied.
+// Without this the only way out is to re-render the chart from scratch.
+export function resetChartStyle(id) {
+  const chart = Chart.getChart(id);
+  if (!chart || !chart._apa7Backup) return;
+  const b = chart._apa7Backup;
+
+  if (chart.options.plugins.customCanvasBackgroundColor) {
+    chart.options.plugins.customCanvasBackgroundColor.color = b.bg ?? 'transparent';
+  }
+
+  ['x', 'y'].forEach(axis => {
+    const sc  = chart.options.scales?.[axis];
+    const bak = b.scales[axis];
+    if (!sc || !bak) return;
+    if (sc.grid)   { sc.grid.color   = bak.gridColor;   sc.grid.display = bak.gridDisplay ?? true; }
+    if (sc.ticks)  { sc.ticks.color  = bak.ticksColor;  if (bak.ticksFont) sc.ticks.font = bak.ticksFont; }
+    if (sc.title)  { sc.title.color  = bak.titleColor;  if (bak.titleFont) sc.title.font = bak.titleFont; }
+    if (sc.border) { sc.border.color = bak.borderColor; sc.border.display = bak.borderDisplay ?? true; }
+  });
+
+  const annots = chart.options.plugins.annotation?.annotations;
+  if (annots) {
+    Object.keys(annots).forEach(key => {
+      const bak = b.annotations[key];
+      if (!bak) return;
+      annots[key].display = bak.display !== false;
+      if (bak.backgroundColor !== undefined) annots[key].backgroundColor = bak.backgroundColor;
+    });
+  }
+
+  chart.data.datasets.forEach((ds, i) => {
+    const bak = b.datasets[i];
+    if (!bak) return;
+    if (bak.borderColor     !== undefined) ds.borderColor     = bak.borderColor;
+    if (bak.backgroundColor !== undefined) ds.backgroundColor = bak.backgroundColor;
+    if (bak.borderWidth     !== undefined) ds.borderWidth     = bak.borderWidth;
+    if (bak.pointRadius     !== undefined) ds.pointRadius     = bak.pointRadius;
+  });
+
+  delete chart._apa7Backup;
+  chart.update();
 }

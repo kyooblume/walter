@@ -296,6 +296,10 @@ function renderResults(fileName,allRows,allValid, phases) {
   uploadCard.style.display = 'none';
   results.style.display    = 'block';
 
+  // Show header controls now that data is loaded
+  document.getElementById('btnHeaderAddFiles').style.display    = 'inline-block';
+  document.getElementById('headerChartsDropdown').style.display = 'block';
+
   appState.parsedAllValid = allValid;
   appState.parsedPhases = phases;
   appState.summaryData.allRows = allRows
@@ -393,6 +397,11 @@ function resetApp() {
   uploadCard.style.display = 'block';
   results.style.display    = 'none';
   fileInput.value          = '';
+
+  // Hide header controls until data is loaded again
+  document.getElementById('btnHeaderAddFiles').style.display    = 'none';
+  document.getElementById('headerChartsDropdown').style.display = 'none';
+  document.getElementById('headerChartsPanel').style.display    = 'none';
   appState.parsedAllValid           = null;
   // Clear session notes when resetting
   const notesEl = document.getElementById('sessionNotes');
@@ -654,7 +663,32 @@ window.removeDemographicItem = (index) => {
 
 
 
-window.toggleChartOptionsPanel = toggleChartOptionsPanel;
+// ---- Header Charts dropdown ----
+function toggleHeaderCharts() {
+  const panel = document.getElementById('headerChartsPanel');
+  panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+}
+
+// Close the dropdown when clicking outside it
+document.addEventListener('click', e => {
+  const dropdown = document.getElementById('headerChartsDropdown');
+  if (dropdown && !dropdown.contains(e.target)) {
+    const panel = document.getElementById('headerChartsPanel');
+    if (panel) panel.style.display = 'none';
+  }
+});
+
+// Sync header checkbox → Processing Options checkbox → toggleChart
+function syncChartCheckbox(hdrCheckbox, targetCheckboxId, chartId) {
+  const target = document.getElementById(targetCheckboxId);
+  if (target) {
+    target.checked = hdrCheckbox.checked;
+  }
+  toggleChart(chartId);
+}
+
+window.toggleHeaderCharts  = toggleHeaderCharts;
+window.syncChartCheckbox   = syncChartCheckbox;
 window.applyChartOptions = applyChartOptions;
 window.toggleChartSettings = toggleChartSettings;
 window.toggleChart = toggleChart;

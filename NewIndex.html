@@ -15,10 +15,32 @@
 </head>
 <body>
 
-<header>
-  <h1>WALTER</h1>
-  <p>HRV Analyser — Heart Rate Variability for psychology students</p>
-  <button class="btn btn-sm" onclick="toggleDarkMode()">Toggle dark mode</button>
+<header id="appHeader">
+  <div class="header-left">
+    <h1>WALTER</h1>
+    <p>HRV Analyser — Heart Rate Variability for psychology students</p>
+  </div>
+  <div class="header-actions">
+    <!-- Add files button — only visible after data is loaded -->
+    <button class="btn btn-sm header-action-btn" id="btnHeaderAddFiles" style="display:none;"
+      onclick="document.getElementById('fileInput').click()">＋ Add files</button>
+
+    <!-- Charts dropdown — only visible after data is loaded -->
+    <div class="header-dropdown" id="headerChartsDropdown" style="display:none;">
+      <button class="btn btn-sm header-action-btn" onclick="toggleHeaderCharts()">Charts ▾</button>
+      <div class="header-dropdown-panel" id="headerChartsPanel" style="display:none;">
+        <div class="header-dropdown-title">Show / hide charts</div>
+        <label><input type="checkbox" id="hdr_chartTachogram"    checked onchange="syncChartCheckbox(this,'chartTachogram','rrChart')">           Tachogram</label>
+        <label><input type="checkbox" id="hdr_chartHR"                  onchange="syncChartCheckbox(this,'chartHR','hrChart')">                    Heart rate</label>
+        <label><input type="checkbox" id="hdr_chartRmssd"               onchange="syncChartCheckbox(this,'chartRmssd','rmssdOverTimeChart')">       RMSSD over time</label>
+        <label><input type="checkbox" id="hdr_chartPoincare"            onchange="syncChartCheckbox(this,'chartPoincare','poincareChart')">         Poincaré plot</label>
+        <label><input type="checkbox" id="hdr_chartHistogram"           onchange="syncChartCheckbox(this,'chartHistogram','histogramChart')">       Histogram</label>
+        <label><input type="checkbox" id="hdr_chartAccelerometer"       onchange="syncChartCheckbox(this,'chartAccelerometer','accelerometerChart')">Accelerometer</label>
+      </div>
+    </div>
+
+    <button class="btn btn-sm header-action-btn" onclick="toggleDarkMode()">Dark mode</button>
+  </div>
 </header>
 
 <main>

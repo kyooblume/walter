@@ -460,11 +460,13 @@ function applyChartOptions(chartId) {
     renderAccelerometer(appState.summaryData.allRows, appState.parsedPhases);
   }
 }
-  if(appState.parsedAllValid && appState.parsedPhases){
+
+function toggleChartSettings() {
+  if (appState.parsedAllValid && appState.parsedPhases) {
     renderCharts(appState.parsedAllValid, appState.parsedPhases);
     renderPoincare(appState.parsedPhases);
   }
-  if (appState.batchResults && appState.batchResults.length > 0){
+  if (appState.batchResults && appState.batchResults.length > 0) {
     renderTrajectoryChart(appState.batchResults);
   }
 }

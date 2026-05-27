@@ -20,6 +20,11 @@ const customCanvasBackgroundColor = {
 
 Chart.register(customCanvasBackgroundColor);
 
+// Register zoom plugin if available
+if (window.ChartZoom) {
+  Chart.register(window.ChartZoom);
+}
+
 
 
 let rrChartInst = null;

@@ -143,9 +143,25 @@
             <span class="card-title">Tachogram — RR intervals over time</span>
             <div style="display:flex; gap:8px;">
               <button class="btn btn-sm" onclick="resetZoom('rrChart')">Reset zoom</button>
+               <button class="btn btn-sm" onclick="applyAPA7Style('rrChart')">APA7 Preset</button>
+                <button class="btn btn-sm" onclick="copyChart('rrChart')">Copy</button>
               <button class="btn btn-sm" onclick="downloadChart('rrChart', 'walter_tachogram.png')">Download PNG</button>
             </div>
           </div>
+
+          <details style="font-size:11px; color:#888780; margin-bottom:8px; cursor: pointer;">
+           
+            <summary> Chart Options </summary>
+            <div style = "padding:10px ; background:whitesmoke; border:1px solid lightgray; display: flex; gap:15px; flex-wrap: wrap; margin-top: 8px;">
+              <label> <input type = "checkbox" id = "rr_pts" onchange = "toggleChartSettings()"> Show data points ></label>
+              <label> <input type = "checkbox" id = "rr_shade" onchange = "toggleChartSettings()"> Show phase shading ></label>
+              <label> <input type = "checkbox" id = "rr_art" onchange = "toggleChartSettings()"> Show artefact markers ></label>
+              <label> <input type = "checkbox" id = "rr_bg" onchange = "toggleChartSettings()"> white background ></label>
+              <label> <input type = "radio" id = "rr_smooth" value = "0" checked onchange = "toggleChartSettings()"> Raw ></label>
+              <label> <input type = "radio" id = "rr_smooth" value = "0.4" onchange = "toggleChartSettings()"> Smooth ></label>
+              <label> <input type = "checkbox" id = "rr_grid" onchange = "toggleChartSettings()"> Grid lines ></label>
+            </div>
+          </details>
           <div style="font-size:11px; color:#888780; margin-bottom:8px;">
             Scroll to zoom · Drag to pan · Double-click to reset
           </div>

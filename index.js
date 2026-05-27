@@ -2,7 +2,7 @@
 
 import { appState } from "./config.js";
 import { getValidRows, calcMetrics,calculateDataQuality, calcFrequencyDomain } from "./HRVMaths.js";
-import { renderCharts, renderPoincare, renderTrajectoryChart, renderHistogram, renderRmssdOverTime, renderAccelerometer, resetZoom } from "./chart.js";
+import { renderCharts, renderPoincare, renderTrajectoryChart, renderHistogram, renderRmssdOverTime, renderAccelerometer, resetZoom,applyAPA7Style } from "./chart.js";
 import { buildPhases, parseBatchFile, classifyFiles } from "./fileParser.js";
 import { showError, hideError, renderSessionMeta, renderLegend, renderMetricCards, renderTable, switchTab, toggleDarkMode, getArtefactMethod, getThreshold, renderBatchTable, renderGroupSummaryTable, copyMethodsStatement, renderArtefactPanel, renderQualitySummary, showAPAReport, renderManifest,buildDemographicsHTML } from "./ui.js";
 import { downloadChart, generateMethodsStatement, downloadQualityCSV, downloadCSV } from "./export.js";
@@ -687,6 +687,8 @@ function syncChartCheckbox(hdrCheckbox, targetCheckboxId, chartId) {
   toggleChart(chartId);
 }
 
+window.applyAPA7Style = applyAPA7Style;
+window.downloadQualityCSV = downloadQualityCSV;
 window.toggleHeaderCharts  = toggleHeaderCharts;
 window.syncChartCheckbox   = syncChartCheckbox;
 window.applyChartOptions = applyChartOptions;

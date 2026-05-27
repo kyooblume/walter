@@ -753,3 +753,27 @@ export function renderTrajectoryChart(rows) {
     }
   });
 }
+
+export function applyAPA7Style(id){
+  const chart = Chart.getChart(id);
+  if(!chart) return;
+
+  chart.options.plugins.customCanvasBackgroundColor.color = 'transparent';
+
+  ['x', 'y'].forEach(axis => {
+    if(chart.options.scales[axis => {
+      chart.options.scales[axis].grid.color = 'transparent';
+      chart.options.scales[axis].ticks.color = 'black';
+      chart.options.scales[axis].title.color = 'black';
+    }
+  ]);
+
+  const annots = chart.options.plugins.annotation?.annotations;
+  if(annots){
+    Object.keys(annots).forEach(key => {
+      if(annots[key].type === 'box') annots[key].backgroundColor = 'transparent';
+    });
+  }
+  chart.update();
+})
+}

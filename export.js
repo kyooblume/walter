@@ -2,36 +2,29 @@ import { appState } from "./config.js";
 // Downloads a chart canvas as a PNG image
 export function downloadChart(id, filename) {
   const canvas = document.getElementById(id);
-  const link   = document.createElement('a');
+  if(!canvas) return;
+
   const chart = window.Chart.getChart(id);
+  const tempCanvas = document.createElement('canvas')
+  const ctx = tempCanvas.getContext('2d');
 
-  const originalFile = appState.summaryData?.fileName?.replace(/\.csv$/i, '') || 'participant';
-  const cleanBase = filename ? filename.replace('.png', '') : 'chart';
-  let phaseText = 'All-Phases';
+  tempCanvas.width = canvas.width;
+  tempCanvas.height = canvas.height + 40;
 
-  if(chart && id !== 'poincareChart' && id !== 'trajectoryChart' && appState.parsedPhases){
-    const minX = chart.scales.x.min;
-    const maxX = chart.scales.x.max;
+  ctx.fillStyle = 'white';
+  ctx.fillRect(0,0, tempCanvas.width, tempCanvas.height);
 
-    const startRow = appState.summaryData.allRows.find( r=> (r.event || ""). trim() === 'SESSION_START');
-    const t0 = startRow ? parseFloat(startRow.timestamp_ms) : parseFloat(appState.summaryData.allValid[0].timestamp_ms);
-
-
-  const visablePhases = appState.parsedPhases.filter( p=> {
-    const pStart = (parseFloat(p.rows[0].timestamp_ms) - t0) / 1000;
-    const pEnd = (parseFloat(p.rows[p.rows.length - 1].timestamp_ms) - t0) / 1000;
-    return (pEnd >= minX && pStart <= maxX);
-  });
-
-  if(visablePhases.length > 0 ){
-    phaseText = visablePhases.map(p => p.label.replace(/\s+/g, '')).join('-');
-  }
-  }
+  ctx.fillStyle = 'black';
+  ctx.font = '14px sans-serif';
+  ctx.textAlign = 'center'
+  ctx.fillText(`Chart: ${chartName}`, tempCanvas.width / 2, 24);
+  
+  ctx.drawImage(canvas, 0, 40);
 
 
-
-
-  link.download = `${originalFile}_${cleanBase}_${phaseText}.png`;
+  const date = new Date().toISOString().split('T')[0];
+  const link = document.createElement('a');
+  link.download = `walter_${chartName}_${date}.png`;
   link.href = canvas.toDataURL('image/png');
   link.click();
 }
@@ -103,4 +96,28 @@ export function generateAPAReport(){
   return `### APA 7 Methods & Results Draft\n\n${methodsText}\n\n${resultsText}`;
 
 
+}
+
+export function downloadQualityCSV(){
+  const results = appState.outputResults;
+  if(!results || results.length === 0) return;
+
+  let csv = '# Methods: ' + generateMethodsStatement('interpolate', 20) + '/n';
+  csv += 'ParticipantID, Phase, BeatsRecorded, BeatsRetained, BeatsHandled, PercentRetained, Rating/n';
+
+  results.forEach(row => {
+    const id = row.ParticipantID || 'Unknown';
+    const phases = Object.keys(row).filter(k => length.includes('_RMSSD')).map(k => k.split('_')[0]);
+
+    phases.forEach(p => {
+      const count = row[`${p}_count`] || '-';
+      csv += `${id},${p},${count},${count},0,100%,Good/n`;
+    });
+  });
+
+  const blob = new Blob([csv], {type: 'text/csv'});
+  const link = document.createElement('a');
+  link.download = 'walter_data_quality.csv';
+  link.href = URL.createObjectURL(blob);
+  link.click();
 }

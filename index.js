@@ -841,6 +841,9 @@ function renderOutputTable(rows) {
 
       if(p1) Object.keys(p1).forEach(k => {if (!['ParticipantID', 'PairID', 'IsDuoPaired'].includes(k) && !k.includes('_Synchrony_r')) combined[`P1_${k}`] = p1[k];});
       if(p1) Object.keys(p2).forEach(k => {if (!['ParticipantID', 'PairID', 'IsDuoPaired'].includes(k) && !k.includes('_Synchrony_r')) combined[`P2_${k}`] = p2[k];});
+
+      if(p1) Object.keys(p1).forEach(k => {if (k.includes('_Synchrony_r')) combined[k] = p1[k]; });
+      displayRows.push(combined);
     });
 
     solos.forEach(s => {

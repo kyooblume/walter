@@ -58,9 +58,9 @@ export function renderTable(session, phaseMetrics, sessionFreq, phaseFreq) {
                      phaseMetrics[1].m;
 
   const changeHeaders = showChange
-    ? `<th style="color:#444441;">Change (abs)</th>
-       <th style="color:#444441;">Change (%)</th>
-       <th style="color:#444441;" title="Cohen's d using SDNN as the variability estimate">Cohen's d</th>`
+    ? `<th style="color:dimgray;">Change (abs)</th>
+       <th style="color:dimgray;">Change (%)</th>
+       <th style="color:dimgray;" title="Cohen's d using SDNN as the variability estimate">Cohen's d</th>`
     : '';
 
   const sessionCol = phaseMetrics.length > 0 ? '<th>Full session</th>' : '';
@@ -91,7 +91,7 @@ export function renderTable(session, phaseMetrics, sessionFreq, phaseFreq) {
           const pct = v1 !== 0 ? (abs / v1) * 100 : 0;
 
           // Colour: red for increase, blue for decrease, gray for no change
-          const absColor = abs > 0 ? '#993C1D' : abs < 0 ? '#185FA5' : '#888780';
+          const absColor = abs > 0 ? 'brown' : abs < 0 ? 'blue' : 'gray';
           const sign     = abs > 0 ? '+' : '';
 
           // Cohen's d uses SDNN as the variability estimate. Skipped for SDNN itself
@@ -108,7 +108,7 @@ export function renderTable(session, phaseMetrics, sessionFreq, phaseFreq) {
             <td style="color:${absColor};font-weight:500">
               ${sign}${pct.toFixed(1)}%
             </td>
-            <td style="color:#444441;font-weight:500">${dVal}</td>`;
+            <td style="color:dimgray;font-weight:500">${dVal}</td>`;
         }
 
         const sessionCell = phaseMetrics.length > 0
@@ -336,6 +336,14 @@ export function renderArtefactPanel(currentMethod, currentThreshold) {
         <button class="btn btn-sm" onclick="copyMethodsStatement()">Copy</button>
       </div>
     </div>
+
+    <div style = "border-top:1px solid lightgray; padding-top:16px; margin-bottom:16px">
+    <div style = "font-size:11px; font-weight:600; text-transform:uppercase; color:gray; margin-bottom:12px;">Output Layout</div>
+    <label style = "display:flex; align-items:center; gap:6px; cursor:pointer; font-size:14px;">
+    <input type = "checkbox" id="combineDuoRows" onchange = "window.onOutputLayoutChange()">
+    Combine Duo pairs into single rows
+    </label>
+    </div> 
 
     <!-- ── CHARTS ── -->
     <div style="border-top:1px solid #E0DED8; padding-top:16px;">

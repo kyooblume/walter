@@ -110,7 +110,7 @@ export function copyChart(id) {
 
 // Downloads the output results as a SPSS-ready CSV
 export function downloadCSV() {
-  const results = appState.outputResults;
+  const results = appState.currentDisplayRows || appState.outputResults;
   if (!results || results.length === 0) return;
 
   const headers = Object.keys(results[0]);
@@ -127,8 +127,12 @@ export function downloadCSV() {
   // Task 4.3 — sensible filename: single participant → P001_2026-05-12_walter_summary.csv
   //                              multiple participants → walter_batch_{date}.csv
   const date = new Date().toISOString().split('T')[0];
-  if (results.length === 1 && results[0].ParticipantID) {
-    link.download = `${results[0].ParticipantID}_${date}_walter_summary.csv`;
+  const id = results[0].ParticipantID || results[0].PairID;
+
+
+
+  if (results.length === 1 && id) {
+    link.download = `${id}_${date}_walter_summary.csv`;
   } else {
     link.download = `walter_batch_${date}.csv`;
   }

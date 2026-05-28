@@ -817,10 +817,47 @@ function removeTraySession(index) {
 function renderOutputTable(rows) {
   const table = document.getElementById('outputTable');
   if (!table || rows.length === 0) return;
+
+  const combine = document.getElementById('combineDuoRows')?.checked;
+  let displayRows = rows;
+
+  if(combine){
+    displayRows = [];
+    const pairs = new Map();
+    const solos = [];
+
+    rows.forEach(r => {
+      if(r.IsDuoPaired && r.PairID){
+        if(!pairs.has(r.PairID)) pairs.set(r.PairID, []);
+        pairs.get(r.PairID).push(r);
+      } else{
+        solos.push(r)
+      }
+    });
+
+    pairs.forEach((pairRows, pairID) =>{
+      const p1 = pairRows.find(r => r.ParticipantID.endsWith('.1')) || pairRows[0];
+      const p2 = pairRows.find(r => r.ParticipantID.endsWith('.2')) || pairRows[1];
+
+      if(p1) Object.keys(p1).forEach(k => {if (!['ParticipantID', 'PairID', 'IsDuoPaired'].includes(k) && !k.includes('_Synchrony_r')) combined[`P1_${k}`] = p1[k];});
+      if(p1) Object.keys(p2).forEach(k => {if (!['ParticipantID', 'PairID', 'IsDuoPaired'].includes(k) && !k.includes('_Synchrony_r')) combined[`P2_${k}`] = p2[k];});
+    });
+
+    solos.forEach(s => {
+      const mapped = { PairID: s.ParticipantID || s.PairID };
+      Object.keys(s).forEach(k => { if (!['ParticipantID', 'PairID', 'IsDuoPaired'].includes(k)) mapped[`P1_${k}`] = s[k]; });
+      displayRows.push(mapped);
+    });
+  }
+
+  appState.currentDisplayRows = displayRows;
+
+
+
   const headers = Object.keys(rows[0]);
   table.innerHTML = `
     <thead><tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr></thead>
-    <tbody>${rows.map(row =>
+    <tbody>${displayRows.map(row =>
       `<tr>${headers.map(h => `<td>${row[h] ?? '—'}</td>`).join('')}</tr>`
     ).join('')}</tbody>`;
 }
@@ -892,6 +929,11 @@ function syncChartCheckbox(hdrCheckbox, targetCheckboxId, chartId) {
     target.checked = hdrCheckbox.checked;
   }
   toggleChart(chartId);
+}
+
+window.onOutputLayoutChange = () => {
+  if(appState.outputResults && appState.outputResults.length > 0)
+    renderOutputTable(appState.outputResults);
 }
 
 window.applyAPA7Style = applyAPA7Style;

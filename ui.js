@@ -1,5 +1,5 @@
 import { PHASE_COLORS, appState } from "./config.js";
-import { generateMethodsStatement, generateAPAReport } from "./export.js";
+import { generateMethodsStatement, generateAPAReport, cohensD } from "./export.js";
 import { parseFilenameMeta } from "./fileParser.js";
 
 export function showError(msg) {
@@ -69,7 +69,9 @@ export function renderTable(session, phaseMetrics, sessionFreq, phaseFreq) {
 
   const changeHeaders = showChange
     ? `<th style="color:#444441;">Change (abs)</th>
-       <th style="color:#444441;">Change (%)</th>`
+       <th style="color:#444441;">Change (%)</th>
+       <th style = "color: #444441;" title = "Cohen using SDNN>" Cohen</th>`
+       
     : '';
 
   const sessionCol = phaseMetrics.length > 0 ? '<th>Full session</th>' : '';
@@ -92,14 +94,18 @@ export function renderTable(session, phaseMetrics, sessionFreq, phaseFreq) {
         // Calculate absolute and percentage change between Phase 1 and Phase 2
         let changeCells = '';
         if (showChange) {
+          const m1 = phaseMetrics[0].m;
+          const m2 = phaseMetrics[1].m;
           const v1  = parseFloat(phaseMetrics[0].m[m.key]);
           const v2  = parseFloat(phaseMetrics[1].m[m.key]);
           const abs = v2 - v1;
           const pct = v1 !== 0 ? (abs / v1) * 100 : 0;
 
           // Colour: red for increase, blue for decrease, gray for no change
-          const absColor = abs > 0 ? '#993C1D' : abs < 0 ? '#185FA5' : '#888780';
+          const absColor = abs > 0 ? 'brown' : abs < 0 ? '#blue' : 'gray';
           const sign     = abs > 0 ? '+' : '';
+
+          const dval = cohensD(m1[m.key], m1.sdnn, m1.count, m2[m.key], m2.sdnn, m2.count);
 
           changeCells = `
             <td style="color:${absColor};font-weight:500">
@@ -107,6 +113,9 @@ export function renderTable(session, phaseMetrics, sessionFreq, phaseFreq) {
             </td>
             <td style="color:${absColor};font-weight:500">
               ${sign}${pct.toFixed(1)}%
+            </td>
+            <td style="color:gray;font-weight:500">
+              ${dVal}
             </td>`;
         }
 
@@ -146,7 +155,7 @@ export function renderTable(session, phaseMetrics, sessionFreq, phaseFreq) {
         : '';
 
       // Change scores not applicable for frequency domain metrics
-      const changeCell = phaseMetrics.length === 2 ? `<td>—</td><td>—</td>` : '';
+      const changeCell = phaseMetrics.length === 2 ? `<td>—</td><td>—</td><td>—</td>` : '';
 
       return `<tr>
         <td class="metric-name" title = "${m.desc}">${m.label}</td>
@@ -293,6 +302,14 @@ export function renderArtefactPanel(currentMethod, currentThreshold) {
         >${generateMethodsStatement(currentMethod, currentThreshold)}</textarea>
         <button class="btn btn-sm" onclick="copyMethodsStatement()">Copy</button>
       </div>
+    </div>
+
+    <div style = "border-top:1px solid lightgray; padding-top:16px; margin-bottom:16px;">
+    <div style = "font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.05em;
+    <label style = "display:flex; align-items:center; gap:6px; cursor: pointer; font-size:14px;">
+    <input type = "checkbox" id = "combineDuoRows" onchange = "window.onOutputLayoutChange()">
+    Combine Duo pairs into single rows (P1/P2 side by side)
+    </label>
     </div>
 
     <!-- ── CHARTS ── -->

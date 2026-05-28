@@ -1,18 +1,13 @@
 import { PHASE_COLORS, appState } from "./config.js";
-import { generateMethodsStatement, generateAPAReport, cohensD } from "./export.js";
+import { generateMethodsStatement, generateAPAReport } from "./export.js";
 import { parseFilenameMeta } from "./fileParser.js";
 
 export function showError(msg) {
-  const errorBox = document.getElementById('errorBox');
-  if (!errorBox) return;
   errorBox.textContent = msg;
   errorBox.style.display = 'block';
 }
 
-export function hideError() {
-  const errorBox = document.getElementById('errorBox');
-  if (errorBox) errorBox.style.display = 'none';
-}
+export function hideError() { errorBox.style.display = 'none'; }
 
 export function renderMetricCards(s, phaseMetrics) {
   const grid    = document.getElementById('metricsGrid');
@@ -50,12 +45,7 @@ export function renderTable(session, phaseMetrics, sessionFreq, phaseFreq) {
     { label: 'Duration',   key: 'duration', unit: 's',     desc: 'Total duration of the recording or phase'     },
   ];
 
-  const table = document.getElementById('summaryTable');
-  // The detail summary table only exists in the per-session view. Skip
-  // silently in modes where it isn't on the page (e.g. before a session is
-  // selected in the manifest path).
-  if (!table) return;
-
+  const table     = document.getElementById('summaryTable');
   const phaseCols = phaseMetrics.map((p, i) => {
     const c = PHASE_COLORS[i % PHASE_COLORS.length];
     return `<th style="color:${c.text}">${p.label}</th>`;
@@ -70,8 +60,7 @@ export function renderTable(session, phaseMetrics, sessionFreq, phaseFreq) {
   const changeHeaders = showChange
     ? `<th style="color:#444441;">Change (abs)</th>
        <th style="color:#444441;">Change (%)</th>
-       <th style = "color: #444441;" title = "Cohen using SDNN>" Cohen</th>`
-       
+       <th style="color:#444441;" title="Cohen's d using SDNN as the variability estimate">Cohen's d</th>`
     : '';
 
   const sessionCol = phaseMetrics.length > 0 ? '<th>Full session</th>' : '';
@@ -94,18 +83,23 @@ export function renderTable(session, phaseMetrics, sessionFreq, phaseFreq) {
         // Calculate absolute and percentage change between Phase 1 and Phase 2
         let changeCells = '';
         if (showChange) {
-          const m1 = phaseMetrics[0].m;
-          const m2 = phaseMetrics[1].m;
-          const v1  = parseFloat(phaseMetrics[0].m[m.key]);
-          const v2  = parseFloat(phaseMetrics[1].m[m.key]);
+          const m1  = phaseMetrics[0].m;
+          const m2  = phaseMetrics[1].m;
+          const v1  = parseFloat(m1[m.key]);
+          const v2  = parseFloat(m2[m.key]);
           const abs = v2 - v1;
           const pct = v1 !== 0 ? (abs / v1) * 100 : 0;
 
           // Colour: red for increase, blue for decrease, gray for no change
-          const absColor = abs > 0 ? 'brown' : abs < 0 ? '#blue' : 'gray';
+          const absColor = abs > 0 ? '#993C1D' : abs < 0 ? '#185FA5' : '#888780';
           const sign     = abs > 0 ? '+' : '';
 
-          const dval = cohensD(m1[m.key], m1.sdnn, m1.count, m2[m.key], m2.sdnn, m2.count);
+          // Cohen's d uses SDNN as the variability estimate. Skipped for SDNN itself
+          // (would just be (v2-v1)/pooled-of-itself, meaningless) and beat count.
+          const skipD = m.key === 'sdnn' || m.key === 'count' || m.key === 'duration';
+          const dVal  = skipD
+            ? '—'
+            : cohensD(m1[m.key], m1.sdnn, m1.count, m2[m.key], m2.sdnn, m2.count);
 
           changeCells = `
             <td style="color:${absColor};font-weight:500">
@@ -114,9 +108,7 @@ export function renderTable(session, phaseMetrics, sessionFreq, phaseFreq) {
             <td style="color:${absColor};font-weight:500">
               ${sign}${pct.toFixed(1)}%
             </td>
-            <td style="color:gray;font-weight:500">
-              ${dVal}
-            </td>`;
+            <td style="color:#444441;font-weight:500">${dVal}</td>`;
         }
 
         const sessionCell = phaseMetrics.length > 0
@@ -155,6 +147,7 @@ export function renderTable(session, phaseMetrics, sessionFreq, phaseFreq) {
         : '';
 
       // Change scores not applicable for frequency domain metrics
+      // Three placeholders to match the new Cohen's d column.
       const changeCell = phaseMetrics.length === 2 ? `<td>—</td><td>—</td><td>—</td>` : '';
 
       return `<tr>
@@ -184,20 +177,60 @@ export function toggleDarkMode(){
     document.body.classList.toggle('dark')
 }
 
-// Legacy multi-tab UI was replaced by the unified single-panel layout.
-// The single dropzone is always visible; only the About panel toggles.
-// All old tab-button DOM nodes are gone, so every getElementById is guarded.
 export function switchTab(tab) {
   const panelSingle = document.getElementById('panelSingle');
-  const panelAbout  = document.getElementById('panelAbout');
+  const panelBatch  = document.getElementById('panelBatch');
+  const tabSingle   = document.getElementById('tabSingle');
+  const tabBatch    = document.getElementById('tabBatch');
+  const tabAbout    = document.getElementById('tabAbout');
 
-  if (tab === 'about') {
-    if (panelSingle) panelSingle.style.display = 'none';
-    if (panelAbout)  panelAbout.style.display  = 'block';
-  } else {
-    if (panelSingle) panelSingle.style.display = 'block';
-    if (panelAbout)  panelAbout.style.display  = 'none';
+  if (tab === 'single') {
+    panelSingle.style.display = 'block';
+    panelBatch.style.display  = 'none';
+    panelAbout.style.display = 'none'
+
+    tabSingle.style.borderBottom = '2px solid #185FA5';
+    tabSingle.style.color        = '#185FA5';
+
+    tabBatch.style.borderBottom  = '2px solid transparent';
+    tabBatch.style.color         = '#5F5E5A';
+
+    tabAbout.style.borderBottom  = '2px solid transparent';
+    tabAbout.style.color         = 'green'
+
+  } else if (tab === 'batch') {
+    panelSingle.style.display = 'none';
+    panelBatch.style.display  = 'block';
+    panelAbout.style.display = 'none'
+
+    tabSingle.style.borderBottom = '2px solid transparent';
+    tabSingle.style.color        = '#5F5E5A';
+
+    tabBatch.style.borderBottom  = '2px solid #185FA5';
+    tabBatch.style.color         = '#185FA5';
+
+    tabAbout.style.borderBottom = '2px solid transparent';
+    tabAbout.style.color = 'green'
   }
+
+  else if (tab === 'about'){
+
+    panelSingle.style.display = 'none';
+    panelBatch.style.display = 'none';
+    panelAbout.style.display = 'block'
+    
+    tabSingle.style.borderBottom = '2px solid transparent';
+    tabSingle.style.color = "green";
+
+    tabBatch.style.borderBottom = '2px solid transparent';
+    tabBatch.style.color = "orange";
+
+    tabAbout.style.borderBottom = '2px solid blue';
+    tabAbout.style.color = 'pink';
+
+  }
+
+  
 }
 
 export function renderSessionMeta(fileName,sessionMetrics){
@@ -302,14 +335,6 @@ export function renderArtefactPanel(currentMethod, currentThreshold) {
         >${generateMethodsStatement(currentMethod, currentThreshold)}</textarea>
         <button class="btn btn-sm" onclick="copyMethodsStatement()">Copy</button>
       </div>
-    </div>
-
-    <div style = "border-top:1px solid lightgray; padding-top:16px; margin-bottom:16px;">
-    <div style = "font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.05em;
-    <label style = "display:flex; align-items:center; gap:6px; cursor: pointer; font-size:14px;">
-    <input type = "checkbox" id = "combineDuoRows" onchange = "window.onOutputLayoutChange()">
-    Combine Duo pairs into single rows (P1/P2 side by side)
-    </label>
     </div>
 
     <!-- ── CHARTS ── -->
@@ -529,75 +554,72 @@ export function showAPAReport(){
 export function buildDemographicsHTML(participantID){
 
   const data = appState.demographics.get(participantID) || {};
-  let html = `<div style="margin-top:8px; padding:10px 14px; background:beige; border:1px solid tan; border-radius:4px; display:flex; gap:12px; flex-wrap:wrap; align-items:center; box-shadow:inset 0 1px 3px rgba(0,0,0,0.02);">`;
+  let html = `<div style = "margin-top: 8px; padding: 10px 14px; background: beige; border: 1px solid tan; border-radius: 4px; display: flex; gap: 12px; flex-wrap: wrap; align-items: center; box-shadow: inset 0 1px 3px rgba(0,0,0,0,02);">`;
 
   appState.demographicFields.forEach(field => {
     const val = data[field] || '';
-    html += `
-      <label style="display:flex; flex-direction:column; gap:4px; font-family:'Georgia',serif;">
-        <span style="font-size:11px; color:saddlebrown; font-weight:600; text-transform:uppercase;">${field}</span>
-        <input type="text" value="${val}"
-          style="width:90px; font-size:13px; padding:4px 6px; border:1px solid gray; border-radius:4px; background:white;"
-          onchange="updateDemographicValue('${participantID}', '${field}', this.value)">
-      </label>`;
+    html += ` 
+    
+    <label style = "display:flex; flex-direction: column; gap: 4px; font-family: 'Georgia', serif;">
+    <span style = "font-size:11px; color: saddlebrown; font-weight: 600; text-transform: uppercase;">${field}</spaan>
+    <input type = "text" value = "${val}"
+    style = "width: 90px; font-size: 13px; padding:4px 6px; border: 1px solid gray; border-radius:4px; background:white;"
+    onchange = "updateDemographicValue('${participantID}', '${field}',this.value)">
+    </label>
+    `;
   });
 
-  // ← was: addDemograaphicField (typo) and missing </button>, stray '>' in label
-  html += `<button class="btn btn-sm" style="font-size:11px; height:fit-content; align-self:flex-end; background:white; border-color:tan; color:saddlebrown;" onclick="addDemographicField()">+ Add field</button>`;
+  html += `<button class = "btn btn-sm" style = "font-size: 11px; height: fit-content; align-self: flex-end; background:white; border-color:tan; color: saddlebrown"; onclick = "addDemograaphicField()"> + Add Field>`;
   html += '</div>';
   return html;
 }
 
-export function renderManifest(manifest) {
+export function renderManifest(manifest){
   document.getElementById('dropZone').style.display = 'none';
   document.getElementById('manifestPanel').style.display = 'block';
 
   const listEl = document.getElementById('manifestList');
   const warnEl = document.getElementById('manifestWarnings');
 
-  // ← was: warnEl.innerHtML (lowercase h+M is invalid) and '${w}' (literal, not interpolated)
-  warnEl.innerHTML = manifest.warnings.length > 0
-    ? manifest.warnings.map(w => `${w}`).join('<br>')
-    : '';
+  warnEl.innerHtML = manifest.warnings.length > 0 ? manifest.warnings.map(w => '${w}').join('<br>') : '';
 
-  let html = '<div style="display:flex; flex-direction:column; gap:16px;">';
+  let html = '<div style = "display: flex; flex-direction:column; gap:16px;">';
 
-  manifest.sessions.forEach((s, index) => {
+
+  manifest.sessions.forEach((s,index) => {
     let name = s.baseID;
     let type = 'Solo session';
-    if (s.kind === 'duo-pair') {
-      name = `${s.baseID}.1 + ${s.baseID}.2`;
-      type = 'Harvey Duo pair';
-    } else if (s.kind === 'duo-unmatched') {
-      name = `${s.baseID}${s.meta.duoSuffix ? '.' + s.meta.duoSuffix : ''}`;
-      type = `Duo — missing ${s.missingPair}`;
-    }
+    if(s.kind == 'duo-pair') {name = `${s.baseID}.1 + ${s.baseID}.2`; type = 'Harvey Duo pair'; }
+    else if( s.kind === 'duo-unmatched') {name = `${s.baseID}${s.meta.duoSuffix || ''}`; type = `Duo ${s.missingPair}`;}
 
-    // ← <strong style="..."${name}</strong> was missing the closing '>'
     html += `
-      <div style="border:1px solid gray; border-radius:6px; padding:12px; background:white;">
-        <div style="display:flex; justify-content:space-between; align-items:center;">
-          <div style="display:flex; align-items:center; gap:12px;">
-            <strong style="font-size:14px; color:black;">${name}</strong>
-            <span style="font-size:12px; color:gray;">${type}</span>
-          </div>
-          <button class="btn btn-sm" onclick="removeManifestItem(${index})">Remove</button>
-        </div>
-        ${buildDemographicsHTML(s.baseID)}
-      </div>`;
+    
+    <div style = "border: 1px solid gray; border-radius: 6px; padding: 12px; background:white;">
+    <div style = "display: flex; justify-content: space-between; align-items: center;">
+    <div style = "display: flex; align-items: center; gap: 12px;">
+    <strong style = "font-size: 14px; color: black;"${name}</strong>
+    <span style = "font-size: 12px; color:gray;">${type}</span>
+    </div>
+    <button class = "btn btn-sm" onclick = "removeManifestItem(${index})"> Remove</button>
+    </div>
+    ${buildDemographicsHTML(s.baseID)}
+    </div>`;
+    
   });
 
-  manifest.demographics.forEach((d, index) => {
+  manifest.demographics.forEach((d,index) => {
     html += `
-      <div style="border:1px dashed green; border-radius:6px; padding:12px; background:honeydew; display:flex; justify-content:space-between; align-items:center;">
-        <div style="display:flex; align-items:center; gap:12px;">
-          <strong style="font-size:14px; color:darkgreen;">${d.name}</strong>
-          <span style="font-size:12px; color:green;">Demographics file (matched via ParticipantID)</span>
-        </div>
-        <button class="btn btn-sm" style="border-color:lightgreen; color:darkgreen; background:white;" onclick="removeDemographicItem(${index})">Remove</button>
-      </div>`;
+    
+    <div style = "border: 1px dashed green; border-radius:6px; padding: 12px; background: honeydew; display: flex; justify-content: space-between; align-items:center;">
+    <div style = "display: flex; align-items: center; gap: 12px;">
+    <strong style = "font-size: 14px; color: darkgreen;">${d.name}</strong>
+    <span style = "font-size: 12px; color:green;"> Demographics file(Matched via ParticipantID)</span>
+    </div>
+    <button class = "btn btn-sm" style = "border-color: lightgreen; color: darkgreen; background:white;" onclick = "removeDemographicItem(${index})"> Remove </button>
+    </div>`;
   });
 
   html += '</div>';
   listEl.innerHTML = html;
-}
+};
+

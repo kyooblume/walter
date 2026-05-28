@@ -836,11 +836,12 @@ function renderOutputTable(rows) {
     });
 
     pairs.forEach((pairRows, pairID) =>{
+      const combined = { PairID: pairID };
       const p1 = pairRows.find(r => r.ParticipantID.endsWith('.1')) || pairRows[0];
       const p2 = pairRows.find(r => r.ParticipantID.endsWith('.2')) || pairRows[1];
 
       if(p1) Object.keys(p1).forEach(k => {if (!['ParticipantID', 'PairID', 'IsDuoPaired'].includes(k) && !k.includes('_Synchrony_r')) combined[`P1_${k}`] = p1[k];});
-      if(p1) Object.keys(p2).forEach(k => {if (!['ParticipantID', 'PairID', 'IsDuoPaired'].includes(k) && !k.includes('_Synchrony_r')) combined[`P2_${k}`] = p2[k];});
+      if(p2) Object.keys(p2).forEach(k => {if (!['ParticipantID', 'PairID', 'IsDuoPaired'].includes(k) && !k.includes('_Synchrony_r')) combined[`P2_${k}`] = p2[k];});
 
       if(p1) Object.keys(p1).forEach(k => {if (k.includes('_Synchrony_r')) combined[k] = p1[k]; });
       displayRows.push(combined);

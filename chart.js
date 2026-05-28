@@ -821,8 +821,9 @@ export function applyAPA7Style(id) {
     const annots = chart.options.plugins.annotation?.annotations;
     if (annots) {
       Object.keys(annots).forEach(key => {
+        // Only snapshot backgroundColor — see comment in the mutation block
+        // below about why we no longer touch `display` on annotations.
         chart._apa7Backup.annotations[key] = {
-          display: annots[key].display,
           backgroundColor: annots[key].backgroundColor,
         };
       });
@@ -863,11 +864,15 @@ export function applyAPA7Style(id) {
     sc.border.display = true;
   });
 
-  // No phase shading boxes — boundary lines (type:'line') stay visible.
+  // No phase shading boxes — set backgroundColor to transparent rather than
+  // toggling .display. The annotation plugin's scriptable resolver enters an
+  // infinite recursion (`_scriptable->_scriptable`) when `display` is mutated
+  // on an existing annotation; touching backgroundColor sidesteps that bug.
+  // Boundary LINES are unaffected because they have no backgroundColor.
   const annots = chart.options.plugins.annotation?.annotations;
   if (annots) {
     Object.keys(annots).forEach(key => {
-      if (annots[key].type === 'box') annots[key].display = false;
+      if (annots[key].type === 'box') annots[key].backgroundColor = 'transparent';
     });
   }
 
@@ -923,7 +928,7 @@ export function resetChartStyle(id) {
     Object.keys(annots).forEach(key => {
       const bak = b.annotations[key];
       if (!bak) return;
-      annots[key].display = bak.display !== false;
+      // Only restore backgroundColor — display was never mutated.
       if (bak.backgroundColor !== undefined) annots[key].backgroundColor = bak.backgroundColor;
     });
   }

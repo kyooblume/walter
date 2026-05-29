@@ -62,7 +62,7 @@ function getChartOptions(chartId) {
   };
 }
 
-
+//draws charts showing interactive heart beats over time 
 export function renderCharts(allValid, phases) {
   if (window.ChartAnnotation) {
     Chart.register(window.ChartAnnotation);

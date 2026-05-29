@@ -110,7 +110,9 @@ export function calcMetrics(rows, method = 'interpolate', threshold = 20) {
   };
 }
 
-
+//calculates the percentage of valid heartbeats
+// kept after removing errors and then assigns the data
+// a poor, fair, or good rating  
 export function calculateDataQuality(heartBeatsRecorded,FilterdRows,AllMetrics){
     const heartBeatDataTotal = heartBeatsRecorded.length;
     let HeartBeatDataretained = FilterdRows.length;

@@ -1,6 +1,10 @@
 import { appState } from "./config.js";
 import { getValidRows, calcMetrics, calculateDataQuality, calcFrequencyDomain } from "./HRVMaths.js";
 
+//gets rid of invalid rows and groups heartbeats 
+//by there phase number and then sorts them into 
+//groups
+
 export function buildPhases(allRows){
         const phaseData = {};
 
@@ -155,6 +159,10 @@ export function sanitiseColName(label) {
     .replace(/^(\d)/, 'P$1');        // Prefix with P if starts with a number
 }
 
+//check file column name to figure
+//out if it contains heart rate data
+// or demographics or somthing else
+
 function detectFileKind(file){
   return new Promise(resolve =>{
     Papa.parse(file, {
@@ -177,6 +185,10 @@ function detectFileKind(file){
   });
 }
 
+//this sorts files into 
+//into demographics and heart rate data 
+// and groups matching heart rate sessions and 
+//also flags any missing parter data 
 export async function classifyFiles(fileList){
   const sessions = [];
   const warnings = [];

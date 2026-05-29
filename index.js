@@ -510,6 +510,8 @@ function onSettingsChange() {
   appState.summaryData = { ...appState.summaryData, session: sessionMetrics, phases: phaseMetrics, method, threshold };
 }
 
+
+
 function updatePhaseLabel(phaseNumber,newLabel){
     appState.phaseLabels[phaseNumber] = newLabel.trim() || `Phase ${phaseNumber}`;
 

@@ -1,63 +1,63 @@
 # WALTER — HRV Analyser
 
-[English](#english) | [日本語](#日本語)
-
-**Live app:** https://kyooblume.github.io/walter/NewIndex.html
+A browser-based Heart Rate Variability (HRV) analysis tool for undergraduate psychology students.
 
 | | |
 |---|---|
 | **Try it** | [Live app](https://kyooblume.github.io/walter/NewIndex.html) — runs in the browser, no install, no data upload |
-| **Read the code** | This repository — vanilla JS modules (see *File Structure* below) |
-| **Sample data** | CSV files recorded with HARVEY (RR intervals in ms) |
+| **Read the code** | This repository — vanilla JavaScript ES modules (see *File structure*) |
+| **Input data** | CSV files of RR intervals recorded with HARVEY |
+
+[English](#english) | [日本語](#日本語)
 
 ## English
 
-WALTER is a browser-based Heart Rate Variability (HRV) analysis tool built for undergraduate psychology students.
-It reads RR-interval CSV files recorded with **HARVEY** and calculates time-domain and frequency-domain HRV metrics.
-All processing runs locally in the browser — no data is uploaded to any server.
+### Why
+Psychology students record heart activity in lab classes but need a simple, transparent way to turn raw RR intervals into HRV metrics and figures for their reports — without installing software or uploading participant data.
 
-**Key features**
-- Artefact detection and correction (interpolate / delete / none, default 20% threshold, as in Kubios HRV)
-- Time-domain (e.g. RMSSD, SDNN) and frequency-domain (FFT-based) metrics per experimental phase
-- Interactive charts: tachogram, heart rate, Poincaré plot (zoom / pan)
-- Batch processing of multiple participants, including HARVEY Duo pairs
-- CSV / PNG export ready for SPSS
+### What it does
+1. **Reads HARVEY CSV files** (RR intervals, phases) — single files, batches of participants, HARVEY Duo pairs (`P001.1` / `P001.2`) and an optional demographics file.
+2. **Cleans the data** — physiological range filter (300–2000 ms) and artefact detection (beat-to-beat change above a threshold, default 20%), with three correction methods: interpolate (default), delete, or none.
+3. **Calculates HRV metrics per phase**
+   - Time domain: mean HR, RMSSD, SDNN, pNN50
+   - Frequency domain (FFT): LF, HF, LF/HF (requires ≥ 60 s of data)
+   - Poincaré: SD1, SD2, SD1/SD2
+4. **Visualises** — tachogram, heart rate, Poincaré plot with identity line, histogram, RMSSD over time, accelerometer and trajectory charts (zoom / pan).
+5. **Exports** — SPSS-ready CSV (one row per participant), data-quality CSV, and PNG charts named `{participant}_{chart}_{phases}_{date}.png`.
 
+**Privacy by design:** all processing happens in the browser. No data is sent to a server.
 
-**Tech:** Vanilla JavaScript (ES modules), Chart.js, math.js, Papa Parse, GitHub Pages
+### Context
+WALTER is part of **CCTK (Caspar's Cool Toolkit)** by Prof. Caspar Addyman. I worked on it as a Junior Developer during my placement at Leeds Trinity University (Apr–May 2026) together with fellow student Euan, from a task list agreed with Caspar. Communication, task specs, commits and reviews were in English.
 
-## My contribution
+### My contribution
+Based on the commit history of this repository:
+- **File pipeline** — automatic file classification, a manifest screen showing what was loaded before processing, and a persistent file tray
+- **HARVEY Duo support** — pairing files from two devices and processing them together
+- **Analysis & charts** — Poincaré identity line with SD1 / SD2, optional charts, data-quality CSV download
+- **Fixes** — zoom reset, file-input and import bugs; APA 7 chart preset (with Euan)
 
-WALTER is part of **CCTK (Caspar's Cool Toolkit)** by Prof. Caspar Addyman. During my 2026 placement at Leeds Trinity University I extended it together with fellow student Euan, working from a task list agreed with Caspar. The whole project — task specs, daily communication, commits and reviews — was carried out in English with a UK-based team.
+**Euan** built incremental processing, the unified output table, demographics input, chart download/copy and output-layout options.
 
-**What I built / extended**
-- **One pipeline for all files** — automatic file classification and a manifest screen that shows what was dropped (solo / Duo pair / demographics / missing partner) before processing; a persistent file tray during processing
-- **HARVEY Duo support** — pairing `P001.1` / `P001.2` files from two devices and processing them together
-- **Analysis features** — Poincaré plot identity line with **SD1 / SD2**, optional charts, data-quality CSV download
-- **Fixes & publishing** — zoom reset, file-input and import bugs, **APA 7** chart preset
+**Outcome** — WALTER was demonstrated by Prof. Addyman at a staff training session, and the features I added to the HARVEY logger (BLE device scanning and extended CSV output) were adopted on both HARVEY devices.
 
-**Euan** built incremental processing, the unified output table, demographics input, chart export and output-layout options.
-
-**Outcome** — The tool was demonstrated by Prof. Addyman at a staff training session, and the features I added to the HARVEY logger (BLE device scanning and extended CSV output) were adopted on both HARVEY devices.
+**Tech:** JavaScript (ES modules), Chart.js (+ annotation / zoom plugins), math.js (FFT), Papa Parse, GitHub Pages
 
 ## 日本語
 
-WALTER は、心理学部の学生向けの、ブラウザで動く心拍変動（HRV）解析ツールです。
-HARVEY で記録したRR間隔のCSVを読み込み、時間領域・周波数領域のHRV指標を計算します。
-処理はすべてブラウザ内で完結し、データはサーバーに送信されません。
+心理学部の学生向けの、ブラウザで動く心拍変動（HRV）解析ツールです。HARVEY で記録したRR間隔のCSVを読み込みます。
 
-**主な機能**
-- アーチファクトの検出と補正（補間・削除・なし。既定の閾値は20%）
-- 実験フェーズごとの時間領域・周波数領域の指標
-- タコグラム、心拍数、ポアンカレプロットのインタラクティブ表示
-- 複数参加者の一括処理（HARVEY Duo のペアにも対応）
-- SPSS で使える CSV / PNG 出力
+- **データ処理**：生理的範囲フィルタ（300–2000 ms）。前拍との差が閾値（既定20%）を超える拍をアーチファクトとして検出し、補間・削除・処理なしから選択できます。
+- **指標**：平均心拍数、RMSSD、SDNN、pNN50、LF・HF・LF/HF（FFT、60秒以上）、SD1・SD2
+- **可視化**：タコグラム、心拍数、ポアンカレプロット、ヒストグラム、RMSSDの推移など
+- **出力**：SPSS向けCSV、データ品質CSV、PNG
+- **プライバシー**：処理はすべてブラウザ内で行い、データは送信しません。
 
-**背景:** Caspar Addyman 教授の研究ツール群 CCTK の一部。2026年、Leeds Trinity Universityでのプレースメント中に、Euan さんと開発・機能拡張に参加しました。
+**担当**：2026年4〜5月、Leeds Trinity University でのプレースメント（Junior Developer）で、Caspar Addyman 教授の CCTK の一部として、Euan さんと開発に参加しました。私は主に、ファイルの自動分類と確認画面、HARVEY Duo 対応、SD1/SD2 と任意グラフ、データ品質CSV、各種バグ修正を担当しました。WALTER は教授によりスタッフ研修でデモされ、私が HARVEY に追加した機能（BLE デバイス検索、CSV 出力の拡張）は HARVEY 2台に採用されました。
 
 ---
 
-## File Structure
+## File structure
 
 ```
 walter/
@@ -74,8 +74,6 @@ walter/
     └── dev-guide.md  — Developer guide and design decisions
 ```
 
----
-
 ## Dependencies
 
 | Library | Version | Purpose |
@@ -86,3 +84,8 @@ walter/
 | hammerjs | 2.0.8 | Touch support |
 | mathjs | 12.4.0 | FFT for frequency domain |
 | Papa Parse | 5.4.1 | CSV parsing |
+
+## Limitations
+- Designed for HARVEY's CSV format; other devices' exports are not supported.
+- Frequency-domain metrics need at least 60 seconds of clean data per phase.
+- No participant data is included in this repository.
